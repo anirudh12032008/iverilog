@@ -137,6 +137,15 @@ pulled from the vec4 stack.
 The %assign/vec4/d instruction is the same, but gets its delay value
 from the index register <delayx> instead.
 
+* %assign/dar/r/d <var-label>, <delay-index>, <max-index>
+* %assign/dar/str/d <var-label>, <delay-index>, <max-index>
+* %assign/dar/vec4/d <var-label>, <delay-index>, <max-index>
+
+These instructions implement delayed assignment to an element of a
+dynamic array or queue. The value is popped from the matching stack and
+the element address is in index register 3. The <max-index> register
+holds the queue bound (0 if unbounded).
+
 * %assign/vec4/a/d <var-label>, <off-index>, <delay-index>
 * %assign/vec4/a/e <var-label>, <off-index>
 

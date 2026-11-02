@@ -64,6 +64,23 @@ extern void schedule_assign_array_word(vvp_array_t mem,
 				       vvp_time64_t delay);
 
 /*
+ * Schedule a nonblocking assignment to a word of the dynamic array or
+ * queue held by the object variable <net>. The array is looked up when
+ * the event runs. <max_size> is the queue bound (0 for none).
+ */
+extern void schedule_assign_darray_word(vvp_net_t*net, unsigned adr,
+					unsigned max_size,
+					const vvp_vector4_t&val,
+					vvp_time64_t delay);
+extern void schedule_assign_darray_word(vvp_net_t*net, unsigned adr,
+					unsigned max_size, double val,
+					vvp_time64_t delay);
+extern void schedule_assign_darray_word(vvp_net_t*net, unsigned adr,
+					unsigned max_size,
+					const std::string&val,
+					vvp_time64_t delay);
+
+/*
  * Create an event to force the output of a net.
  */
 extern void schedule_force_vector(vvp_net_t*net,

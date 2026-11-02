@@ -543,6 +543,11 @@ static int show_stmt_assign_nb(ivl_statement_t net)
       }
 
 
+      if (sig && ivl_lval_idx(lval) &&
+	  (ivl_signal_data_type(sig) == IVL_VT_DARRAY ||
+	   ivl_signal_data_type(sig) == IVL_VT_QUEUE))
+	    return show_stmt_assign_nb_darray_queue(net, delay, del);
+
       { unsigned wid;
 	unsigned lidx;
 	unsigned cur_rbit = 0;

@@ -6099,6 +6099,53 @@ bool of_STORE_DAR_VEC4(vthread_t thr, vvp_code_t cp)
       return store_dar<vvp_vector4_t>(thr, cp);
 }
 
+/*
+ * %assign/dar/r/d <var>, <delx>, <maxx>
+ * %assign/dar/str/d <var>, <delx>, <maxx>
+ * %assign/dar/vec4/d <var>, <delx>, <maxx>
+ *
+ * Nonblocking assignment of the popped value to the dynamic array or
+ * queue word whose address is in index register 3. <maxx> is the
+ * queue bound register.
+ */
+template <typename ELEM>
+static bool assign_dar(vthread_t thr, vvp_code_t cp)
+{
+      int64_t adr = thr->words[3].w_int;
+      vvp_time64_t del = thr->words[cp->bit_idx[0]].w_uint;
+      unsigned max_size = thr->words[cp->bit_idx[1]].w_int;
+      ELEM value;
+      dar_pop_value(thr, value);
+
+      if (adr < 0)
+	    cerr << thr->get_fileline()
+	         << "Warning: cannot write to a negative " << get_darray_type(value)
+	         << " index (" << adr << ")." << endl;
+      else if (thr->flags[4] != BIT4_0)
+	    cerr << thr->get_fileline()
+	         << "Warning: cannot write to an undefined " << get_darray_type(value)
+	         << " index." << endl;
+      else
+	    schedule_assign_darray_word(cp->net, adr, max_size, value, del);
+
+      return true;
+}
+
+bool of_ASSIGN_DAR_R_D(vthread_t thr, vvp_code_t cp)
+{
+      return assign_dar<double>(thr, cp);
+}
+
+bool of_ASSIGN_DAR_STR_D(vthread_t thr, vvp_code_t cp)
+{
+      return assign_dar<string>(thr, cp);
+}
+
+bool of_ASSIGN_DAR_VEC4_D(vthread_t thr, vvp_code_t cp)
+{
+      return assign_dar<vvp_vector4_t>(thr, cp);
+}
+
 bool of_STORE_OBJ(vthread_t thr, vvp_code_t cp)
 {
 	/* set the value into port 0 of the destination. */

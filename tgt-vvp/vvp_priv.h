@@ -251,6 +251,8 @@ extern int draw_eval_object(ivl_expr_t ex);
 extern int draw_queue_method_find_sfunc(ivl_expr_t expr);
 
 extern int show_stmt_assign(ivl_statement_t net);
+extern int show_stmt_assign_nb_darray_queue(ivl_statement_t net,
+					    uint64_t delay, ivl_expr_t dexp);
 extern void show_stmt_file_line(ivl_statement_t net, const char*desc);
 
 /*

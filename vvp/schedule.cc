@@ -22,6 +22,7 @@
 # include  "vthread.h"
 # include  "vpi_priv.h"
 # include  "vvp_net_sig.h"
+# include  "vvp_darray.h"
 # include  "slab.h"
 # include  "compile.h"
 # include  <new>
@@ -946,6 +947,62 @@ void schedule_assign_array_word(vvp_array_t mem,
       cur->adr = word_addr;
       cur->val = val;
       schedule_event_(cur, delay, SEQ_NBASSIGN);
+}
+
+/*
+ * Nonblocking assignment to a dynamic array or queue word. The object
+ * is looked up when the event runs, as the variable may have been
+ * reassigned since the statement executed.
+ */
+template <typename ELEM> struct assign_darray_word_s  : public event_s {
+      vvp_net_t*net;
+      unsigned adr;
+      unsigned max_size;
+      ELEM val;
+      void run_run(void) override {
+	    count_assign_events += 1;
+	    vvp_fun_signal_object*obj = dynamic_cast<vvp_fun_signal_object*> (net->fun);
+	    assert(obj);
+	    vvp_darray*darray = obj->get_object().peek<vvp_darray>();
+	    if (vvp_queue*queue = dynamic_cast<vvp_queue*> (darray))
+		  queue->set_word_max(adr, val, max_size);
+	    else if (darray)
+		  darray->set_word(adr, val);
+      }
+};
+
+template <typename ELEM>
+static void schedule_assign_darray_word_(vvp_net_t*net, unsigned adr,
+					 unsigned max_size, const ELEM&val,
+					 vvp_time64_t delay)
+{
+      assign_darray_word_s<ELEM>*cur = new assign_darray_word_s<ELEM>;
+      cur->net = net;
+      cur->adr = adr;
+      cur->max_size = max_size;
+      cur->val = val;
+      schedule_event_(cur, delay, SEQ_NBASSIGN);
+}
+
+void schedule_assign_darray_word(vvp_net_t*net, unsigned adr,
+				 unsigned max_size, const vvp_vector4_t&val,
+				 vvp_time64_t delay)
+{
+      schedule_assign_darray_word_(net, adr, max_size, val, delay);
+}
+
+void schedule_assign_darray_word(vvp_net_t*net, unsigned adr,
+				 unsigned max_size, double val,
+				 vvp_time64_t delay)
+{
+      schedule_assign_darray_word_(net, adr, max_size, val, delay);
+}
+
+void schedule_assign_darray_word(vvp_net_t*net, unsigned adr,
+				 unsigned max_size, const std::string&val,
+				 vvp_time64_t delay)
+{
+      schedule_assign_darray_word_(net, adr, max_size, val, delay);
 }
 
 void schedule_set_vector(vvp_net_ptr_t ptr, const vvp_vector4_t&bit)

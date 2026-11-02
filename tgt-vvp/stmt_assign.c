@@ -1098,6 +1098,9 @@ static void show_stmt_assign_sig_darray_queue_mux(ivl_statement_t net)
       ivl_type_t element_type = ivl_type_element(var_type);
       ivl_expr_t mux  = ivl_lval_idx(lval);
       ivl_expr_t rval = ivl_stmt_rval(net);
+      /* Nonblocking assignments have no compound operator. */
+      char opcode = ivl_statement_type(net) == IVL_ST_ASSIGN ?
+		    ivl_stmt_opcode(net) : 0;
 
       /*
        * Queue and dynamic array load and store functions expect the element
@@ -1109,7 +1112,7 @@ static void show_stmt_assign_sig_darray_queue_mux(ivl_statement_t net)
 
       switch (ivl_type_base(element_type)) {
 	  case IVL_VT_REAL:
-	    if (ivl_stmt_opcode(net) != 0) {
+	    if (opcode != 0) {
 		  int mux_word = allocate_word();
 		  int flag = allocate_flag();
 
@@ -1118,7 +1121,7 @@ static void show_stmt_assign_sig_darray_queue_mux(ivl_statement_t net)
 		  fprintf(vvp_out, "    %%flag_mov %d, 4;\n", flag);
 		  fprintf(vvp_out, "    %%load/dar/r v%p_0;\n", var);
 		  draw_eval_real(rval);
-		  draw_stmt_assign_real_opcode(ivl_stmt_opcode(net));
+		  draw_stmt_assign_real_opcode(opcode);
 		  fprintf(vvp_out, "    %%flag_mov 4, %d;\n", flag);
 		  fprintf(vvp_out, "    %%ix/mov 3, %d;\n", mux_word);
 		  clr_flag(flag);
@@ -1129,13 +1132,13 @@ static void show_stmt_assign_sig_darray_queue_mux(ivl_statement_t net)
 	    }
 	    break;
 	  case IVL_VT_STRING:
-	    assert(ivl_stmt_opcode(net) == 0);
+	    assert(opcode == 0);
 	    draw_eval_string(rval);
 	    draw_eval_expr_into_integer(mux, 3);
 	    break;
 	  case IVL_VT_BOOL:
 	  case IVL_VT_LOGIC:
-	    if (ivl_stmt_opcode(net) != 0) {
+	    if (opcode != 0) {
 		  int mux_word = allocate_word();
 		  int flag = allocate_flag();
 
@@ -1145,7 +1148,7 @@ static void show_stmt_assign_sig_darray_queue_mux(ivl_statement_t net)
 		  fprintf(vvp_out, "    %%load/dar/vec4 v%p_0;\n", var);
 		  draw_eval_vec4(rval);
 		  resize_vec4_wid(rval, ivl_stmt_lwidth(net));
-		  draw_stmt_assign_vector_opcode(ivl_stmt_opcode(net),
+		  draw_stmt_assign_vector_opcode(opcode,
 					         ivl_expr_signed(rval));
 		  fprintf(vvp_out, "    %%flag_mov 4, %d;\n", flag);
 		  fprintf(vvp_out, "    %%ix/mov 3, %d;\n", mux_word);
@@ -1513,6 +1516,64 @@ static int show_stmt_assign_sig_cobject(ivl_statement_t net)
       }
 
       return errors;
+}
+
+/*
+ * Nonblocking assignment to an element of a dynamic array or queue.
+ * The element address ends up in index register 3, the value on the
+ * stack, and the delay and queue bound in scratch registers.
+ */
+int show_stmt_assign_nb_darray_queue(ivl_statement_t net,
+				     uint64_t delay, ivl_expr_t dexp)
+{
+      ivl_lval_t lval = ivl_stmt_lval(net, 0);
+      ivl_signal_t var = ivl_lval_sig(lval);
+      ivl_type_t var_type = ivl_signal_net_type(var);
+      ivl_type_t element_type = ivl_type_element(var_type);
+      const char*kind;
+
+      assert(ivl_stmt_lvals(net) == 1);
+      assert(ivl_lval_idx(lval));
+
+      if (ivl_stmt_nevent(net)) {
+	    fprintf(stderr, "%s:%u: sorry: Intra-assignment event control is "
+	                    "not supported for dynamic array or queue elements.\n",
+	                    ivl_stmt_file(net), ivl_stmt_lineno(net));
+	    return 1;
+      }
+
+      switch (ivl_type_base(element_type)) {
+	  case IVL_VT_REAL:
+	    kind = "r";
+	    break;
+	  case IVL_VT_STRING:
+	    kind = "str";
+	    break;
+	  default:
+	    kind = "vec4";
+	    break;
+      }
+
+      int delay_index = allocate_word();
+      int max_index = allocate_word();
+      if (dexp) {
+	    draw_eval_expr_into_integer(dexp, delay_index);
+      } else {
+	    fprintf(vvp_out, "    %%ix/load %d, %lu, %lu;\n", delay_index,
+		    (unsigned long)(delay % UINT64_C(0x100000000)),
+		    (unsigned long)(delay / UINT64_C(0x100000000)));
+      }
+      fprintf(vvp_out, "    %%ix/load %d, %u, 0;\n", max_index,
+	      ivl_type_base(var_type) == IVL_VT_QUEUE ?
+	      ivl_signal_array_count(var) : 0);
+
+      show_stmt_assign_sig_darray_queue_mux(net);
+      fprintf(vvp_out, "    %%assign/dar/%s/d v%p_0, %d, %d;\n", kind, var,
+	      delay_index, max_index);
+
+      clr_word(max_index);
+      clr_word(delay_index);
+      return 0;
 }
 
 int show_stmt_assign(ivl_statement_t net)
