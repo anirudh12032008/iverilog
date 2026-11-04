@@ -466,6 +466,47 @@ static int show_stmt_assign_nb_real(ivl_statement_t net)
       return 0;
 }
 
+/*
+ * Nonblocking assignment of a whole dynamic array or queue. The
+ * r-value is copied when the statement executes, and %assign/obj/d
+ * stores the copy in the NBA region.
+ */
+static int show_stmt_assign_nb_object(ivl_statement_t net, uint64_t delay,
+				      ivl_expr_t del)
+{
+      ivl_signal_t sig = ivl_lval_sig(ivl_stmt_lval(net, 0));
+      int errors;
+
+      if (ivl_stmt_nevent(net)) {
+	    fprintf(stderr, "%s:%u: sorry: Intra-assignment event control is "
+	                    "not supported for dynamic arrays or queues.\n",
+	                    ivl_stmt_file(net), ivl_stmt_lineno(net));
+	    return 1;
+      }
+
+      errors = draw_eval_object(ivl_stmt_rval(net));
+      fprintf(vvp_out, "    %%dup/obj;\n");
+
+      int delay_index = allocate_word();
+      int max_index = allocate_word();
+      if (del) {
+	    draw_eval_expr_into_integer(del, delay_index);
+      } else {
+	    fprintf(vvp_out, "    %%ix/load %d, %lu, %lu;\n", delay_index,
+		    (unsigned long)(delay % UINT64_C(0x100000000)),
+		    (unsigned long)(delay / UINT64_C(0x100000000)));
+      }
+      fprintf(vvp_out, "    %%ix/load %d, %u, 0;\n", max_index,
+	      ivl_signal_data_type(sig) == IVL_VT_QUEUE ?
+	      ivl_signal_array_count(sig) : 0);
+      fprintf(vvp_out, "    %%assign/obj/d v%p_0, %d, %d;\n", sig,
+	      delay_index, max_index);
+      fprintf(vvp_out, "    %%pop/obj 1, 0;\n");
+      clr_word(max_index);
+      clr_word(delay_index);
+      return errors;
+}
+
 static int show_stmt_assign_nb(ivl_statement_t net)
 {
       ivl_lval_t lval;
@@ -542,6 +583,11 @@ static int show_stmt_assign_nb(ivl_statement_t net)
 	    del = 0;
       }
 
+
+      if (sig && !ivl_lval_idx(lval) &&
+	  (ivl_signal_data_type(sig) == IVL_VT_DARRAY ||
+	   ivl_signal_data_type(sig) == IVL_VT_QUEUE))
+	    return show_stmt_assign_nb_object(net, delay, del);
 
       { unsigned wid;
 	unsigned lidx;

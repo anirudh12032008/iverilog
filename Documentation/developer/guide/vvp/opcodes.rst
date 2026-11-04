@@ -125,6 +125,15 @@ event control registers to determine when to perform the assign.
 The <var-label> references a .var object that can receive non-blocking
 assignments. For blocking assignments, see %set/v.
 
+* %assign/obj/d <var-label>, <delayx>, <maxx>
+
+Nonblocking assign of the object popped from the object stack to the
+object variable <var-label> after the delay in integer register
+<delayx>. If the variable is a queue, the elements are copied into it,
+limited by the bound in integer register <maxx> (0 for no bound);
+otherwise the variable is replaced by the object. The object should be
+a copy, as it is stored when the event runs.
+
 * %assign/vec4 <var-label>, <delay>
 * %assign/vec4/d <var-label>, <delayx>
 * %assign/vec4/e <var-label>

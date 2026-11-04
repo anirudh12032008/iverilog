@@ -22,6 +22,7 @@
 # include  "vthread.h"
 # include  "vpi_priv.h"
 # include  "vvp_net_sig.h"
+# include  "vvp_darray.h"
 # include  "slab.h"
 # include  "compile.h"
 # include  <new>
@@ -945,6 +946,36 @@ void schedule_assign_array_word(vvp_array_t mem,
       cur->mem = mem;
       cur->adr = word_addr;
       cur->val = val;
+      schedule_event_(cur, delay, SEQ_NBASSIGN);
+}
+
+struct assign_object_s  : public event_s {
+      vvp_net_t*net;
+      vvp_object_t val;
+      unsigned max_size;
+      void run_run(void) override {
+	    count_assign_events += 1;
+	    vvp_fun_signal_object*obj = dynamic_cast<vvp_fun_signal_object*> (net->fun);
+	    assert(obj);
+	      // A queue keeps its identity, so copy the elements in.
+	    if (vvp_queue*queue = obj->get_object().peek<vvp_queue>()) {
+		  if (val.test_nil())
+			queue->erase_tail(0);
+		  else
+			queue->copy_elems(val, max_size);
+	    } else {
+		  vvp_send_object(vvp_net_ptr_t(net, 0), val, 0);
+	    }
+      }
+};
+
+void schedule_assign_object(vvp_net_t*net, vvp_object_t val,
+			    unsigned max_size, vvp_time64_t delay)
+{
+      assign_object_s*cur = new assign_object_s;
+      cur->net = net;
+      cur->val = val;
+      cur->max_size = max_size;
       schedule_event_(cur, delay, SEQ_NBASSIGN);
 }
 

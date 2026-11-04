@@ -6099,6 +6099,22 @@ bool of_STORE_DAR_VEC4(vthread_t thr, vvp_code_t cp)
       return store_dar<vvp_vector4_t>(thr, cp);
 }
 
+/*
+ * %assign/obj/d <var>, <delx>, <maxx>
+ *
+ * Nonblocking assignment of the object popped from the object stack to
+ * the variable. <maxx> is the queue bound register.
+ */
+bool of_ASSIGN_OBJ_D(vthread_t thr, vvp_code_t cp)
+{
+      vvp_time64_t del = thr->words[cp->bit_idx[0]].w_uint;
+      unsigned max_size = thr->words[cp->bit_idx[1]].w_int;
+      vvp_object_t val;
+      thr->pop_object(val);
+      schedule_assign_object(cp->net, val, max_size, del);
+      return true;
+}
+
 bool of_STORE_OBJ(vthread_t thr, vvp_code_t cp)
 {
 	/* set the value into port 0 of the destination. */

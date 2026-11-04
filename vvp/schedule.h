@@ -64,6 +64,14 @@ extern void schedule_assign_array_word(vvp_array_t mem,
 				       vvp_time64_t delay);
 
 /*
+ * Schedule a nonblocking assignment of the object <val> to the object
+ * variable <net>. For a queue target the elements are copied in, up to
+ * <max_size> (0 for no bound); otherwise the variable takes <val>.
+ */
+extern void schedule_assign_object(vvp_net_t*net, vvp_object_t val,
+				   unsigned max_size, vvp_time64_t delay);
+
+/*
  * Create an event to force the output of a net.
  */
 extern void schedule_force_vector(vvp_net_t*net,

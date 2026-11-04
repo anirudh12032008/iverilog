@@ -41,6 +41,7 @@ extern bool of_ANDR(vthread_t thr, vvp_code_t code);
 extern bool of_ASSIGN_AR(vthread_t thr, vvp_code_t code);
 extern bool of_ASSIGN_ARD(vthread_t thr, vvp_code_t code);
 extern bool of_ASSIGN_ARE(vthread_t thr, vvp_code_t code);
+extern bool of_ASSIGN_OBJ_D(vthread_t thr, vvp_code_t code);
 extern bool of_ASSIGN_VEC4(vthread_t thr, vvp_code_t code);
 extern bool of_ASSIGN_VEC4D(vthread_t thr, vvp_code_t code);
 extern bool of_ASSIGN_VEC4E(vthread_t thr, vvp_code_t code);

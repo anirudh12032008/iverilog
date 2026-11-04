@@ -727,6 +727,13 @@ static void copy_elements(QTYPE*queue, SRC_TYPE*src, unsigned max_size)
       }
 }
 
+vvp_object* vvp_queue_real::duplicate(void) const
+{
+      vvp_queue_real*that = new vvp_queue_real;
+      that->queue = queue;
+      return that;
+}
+
 void vvp_queue_real::copy_elems(vvp_object_t src, unsigned max_size)
 {
       if (vvp_queue*src_queue = src.peek<vvp_queue>())
@@ -833,6 +840,13 @@ void vvp_queue_real::erase_tail(unsigned idx)
       assert(queue.size() >= idx);
       if (queue.size() > idx)
 	    queue.resize(idx);
+}
+
+vvp_object* vvp_queue_string::duplicate(void) const
+{
+      vvp_queue_string*that = new vvp_queue_string;
+      that->queue = queue;
+      return that;
 }
 
 void vvp_queue_string::copy_elems(vvp_object_t src, unsigned max_size)
@@ -973,6 +987,13 @@ void vvp_queue_string::sort_elems(bool ascending)
 void vvp_queue_string::shuffle_elems(void)
 {
       std::shuffle(queue.begin(), queue.end(), shuffle_rng());
+}
+
+vvp_object* vvp_queue_vec4::duplicate(void) const
+{
+      vvp_queue_vec4*that = new vvp_queue_vec4;
+      that->queue = queue;
+      return that;
 }
 
 void vvp_queue_vec4::copy_elems(vvp_object_t src, unsigned max_size)
