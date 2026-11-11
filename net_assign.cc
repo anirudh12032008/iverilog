@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2025 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 2000-2026 Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -20,6 +20,7 @@
 # include "config.h"
 
 # include  "netlist.h"
+# include  "netmisc.h"
 # include  "netclass.h"
 # include  "netdarray.h"
 # include  "netparray.h"
@@ -32,14 +33,23 @@ using namespace std;
  * NetAssign
  */
 
-unsigned count_lval_width(const NetAssign_*idx)
+/*
+ * Return the width and type context for evaluating the RHS of an assignment
+ * to this l-value. A concatenation needs a four-state context if any component
+ * is four-state, so evaluating the RHS does not discard X/Z values needed by
+ * that component. Two-state components are converted when stored. A single
+ * l-value supplies its own type, including non-integral types.
+ */
+lval_info_t get_lval_info(const NetAssign_*idx)
 {
-      unsigned wid = 0;
-      while (idx) {
-	    wid += idx->lwidth();
-	    idx = idx->more;
+      lval_info_t info;
+      for (; idx ; idx = idx->more) {
+	    info.width += idx->lwidth();
+	    if (info.type != IVL_VT_LOGIC) {
+		  info.type = idx->expr_type();
+	    }
       }
-      return wid;
+      return info;
 }
 
 NetAssign_::NetAssign_(NetAssign_*n)
