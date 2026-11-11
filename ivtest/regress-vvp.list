@@ -281,6 +281,11 @@ hier_index_module_name_fail	vvp_tests/hier_index_module_name_fail.json
 hier_index_queue_fail		vvp_tests/hier_index_queue_fail.json
 hier_index_root_name_fail	vvp_tests/hier_index_root_name_fail.json
 implicit_cast14			vvp_tests/implicit_cast14.json
+implicit_cast15			vvp_tests/implicit_cast15.json
+implicit_cast16			vvp_tests/implicit_cast16.json
+implicit_cast17			vvp_tests/implicit_cast17.json
+implicit_cast18			vvp_tests/implicit_cast18.json
+implicit_cast19			vvp_tests/implicit_cast19.json
 initial_null			vvp_tests/initial_null.json
 initial_null_verilog_fail	vvp_tests/initial_null_verilog_fail.json
 line_directive			vvp_tests/line_directive.json
