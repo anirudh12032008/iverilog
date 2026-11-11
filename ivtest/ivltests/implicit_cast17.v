@@ -19,6 +19,15 @@ module test;
   endtask
 
   initial begin
+    copy({four, two, other}, 12'bxxxx01011010);
+    `check({four, two, other}, 12'bxxxx01011010);
+
+    copy({two, four, other}, 12'b0101zzzz1010);
+    `check({two, four, other}, 12'b0101zzzz1010);
+
+    copy({two, other, four}, 12'b01011010xxxx);
+    `check({two, other, four}, 12'b01011010xxxx);
+
     copy({two, other, four}, 12'bx1z0_z01x_xz10);
     `check({two, other, four}, 12'b0100_0010_xz10);
 
