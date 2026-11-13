@@ -1075,6 +1075,14 @@ class NetScope : public Definitions, public Attrib {
 	   if a unique name couldn't be generated. */
       bool auto_name(const char* prefix, char pad, const char* suffix);
 
+	/* Change the name of the scope in its parent scope, or remove
+	   it from its parent scope. These are used for the scope of a
+	   specialization of a parameterized class, which is named
+	   after its parameter values, and dropped if it turns out to
+	   be equal to an existing specialization. */
+      void rename(const hname_t&name);
+      void detach();
+
       void add_imports(const package_import_map_t *imports);
       NetScope *find_import(const Design *des, perm_string name,
 			    unsigned int lexical_pos = UINT_MAX);
@@ -5318,6 +5326,15 @@ class Design {
       void run_elaboration_work(void);
 
       std::set<NetScope*> defparams_later;
+
+	/* Specializations of parameterized classes are created on
+	   demand during elaboration. Their signals and statements are
+	   elaborated after those of the rest of the design. Once the
+	   signal pass is done, the signals of new specializations are
+	   elaborated right away. */
+      std::list<netclass_t*> class_specializations_sig;
+      std::list<netclass_t*> class_specializations_elab;
+      bool class_specializations_sig_done = false;
 
 	// PARAMETERS
 

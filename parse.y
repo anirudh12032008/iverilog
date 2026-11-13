@@ -240,6 +240,29 @@ static data_type_t *pform_new_type_identifier(const struct vlltype &loc,
       return pform_new_type_identifier(loc, package, name);
 }
 
+  /* A class type with a parameter value assignment, e.g. C#(8). */
+static data_type_t *pform_new_type_identifier(const struct vlltype &loc,
+					     PPackage *package,
+					     char *text,
+					     parmvalue_t *params)
+{
+      auto tmp = static_cast<type_identifier_t*>(
+	    pform_new_type_identifier(loc, package, text));
+      tmp->has_params = true;
+      if (params && params->by_order) {
+	    tmp->params_by_order.splice(tmp->params_by_order.end(),
+					*params->by_order);
+	    delete params->by_order;
+      }
+      if (params && params->by_name) {
+	    tmp->params_by_name.splice(tmp->params_by_name.end(),
+				       *params->by_name);
+	    delete params->by_name;
+      }
+      delete params;
+      return tmp;
+}
+
 static index_component_t *make_index_component(const struct vlltype &loc,
 					       index_component_t::ctype_t sel,
 					       PExpr *msb = nullptr,
@@ -1474,6 +1497,12 @@ Module::port_t *module_declare_interface_port(const YYLTYPE&loc, char *type,
 %nonassoc '('
 %nonassoc K_exclude
 
+ /* to resolve the ambiguity between a delay after the data type of a net
+    declaration, e.g. "wire T #(1) w;", and a class specialization "T #(1)".
+    Nets can not have a class type, so prefer the delay. */
+%nonassoc '#'
+%nonassoc no_index_components
+
  /* to resolve timeunits declaration/redeclaration ambiguity */
 %nonassoc no_timeunits_declaration
 %nonassoc one_timeunits_declaration
@@ -1977,6 +2006,12 @@ ps_type_identifier /* IEEE1800-2017: A.9.3 */
       { lex_in_package_scope(0);
 	$$ = pform_new_type_identifier(@2, $1, $2);
       }
+  | IDENTIFIER parameter_value_assignment
+      { $$ = pform_new_type_identifier(@1, nullptr, $1, $2); }
+  | package_scope IDENTIFIER parameter_value_assignment
+      { lex_in_package_scope(0);
+	$$ = pform_new_type_identifier(@2, $1, $2, $3);
+      }
   ;
 
 ps_type_identifier_dim /* IEEE1800-2017: A.9.3 */
@@ -1988,6 +2023,15 @@ ps_type_identifier_dim /* IEEE1800-2017: A.9.3 */
       { lex_in_package_scope(nullptr);
 	auto tmp = pform_new_type_identifier(@2, $1, $2);
 	$$ = pform_make_parray_type(@3, tmp, $3);
+      }
+  | IDENTIFIER parameter_value_assignment dimensions_opt
+      { auto tmp = pform_new_type_identifier(@1, nullptr, $1, $2);
+	$$ = pform_make_parray_type(@3, tmp, $3);
+      }
+  | package_scope IDENTIFIER parameter_value_assignment dimensions_opt
+      { lex_in_package_scope(nullptr);
+	auto tmp = pform_new_type_identifier(@2, $1, $2, $3);
+	$$ = pform_make_parray_type(@4, tmp, $4);
       }
   ;
 
@@ -2689,6 +2733,13 @@ package_variable_decl_assignments_with_type
 	$$.decl_assignments = $4;
 	$$.type = pform_make_parray_type(@3, tmp, $3);
       }
+  | package_scope IDENTIFIER parameter_value_assignment dimensions_opt
+    list_of_variable_decl_assignments
+      { lex_in_package_scope(nullptr);
+	auto tmp = pform_new_type_identifier(@2, $1, $2, $3);
+	$$.decl_assignments = $5;
+	$$.type = pform_make_parray_type(@4, tmp, $4);
+      }
   ;
 
 initializer_opt
@@ -3267,6 +3318,17 @@ data_type_or_implicit_plus_id
 	set_type_id_range($$, pform_make_parray_type(@3, tmp, $3),
 			  $4, @4, nullptr);
       }
+  | IDENTIFIER parameter_value_assignment dimensions_opt IDENTIFIER
+      { auto tmp = pform_new_type_identifier(@1, nullptr, $1, $2);
+	set_type_id_range($$, pform_make_parray_type(@3, tmp, $3),
+			  $4, @4, nullptr);
+      }
+  | package_scope IDENTIFIER parameter_value_assignment dimensions_opt IDENTIFIER
+      { lex_in_package_scope(nullptr);
+	auto tmp = pform_new_type_identifier(@2, $1, $2, $3);
+	set_type_id_range($$, pform_make_parray_type(@4, tmp, $4),
+			  $5, @5, nullptr);
+      }
   ;
 
   // A plain identifier can be an implicit declaration name or the first token
@@ -3292,6 +3354,18 @@ data_type_or_implicit_plus_id_dim
 	auto tmp = pform_new_type_identifier(@2, $1, $2);
 	tmp = pform_make_parray_type(@3, tmp, $3);
 	set_type_id_range($$, tmp, $4, @4, $5);
+      }
+  | IDENTIFIER parameter_value_assignment dimensions_opt IDENTIFIER dimensions_opt
+      { auto tmp = pform_new_type_identifier(@1, nullptr, $1, $2);
+	tmp = pform_make_parray_type(@3, tmp, $3);
+	set_type_id_range($$, tmp, $4, @4, $5);
+      }
+  | package_scope IDENTIFIER parameter_value_assignment dimensions_opt
+    IDENTIFIER dimensions_opt
+      { lex_in_package_scope(nullptr);
+	auto tmp = pform_new_type_identifier(@2, $1, $2, $3);
+	tmp = pform_make_parray_type(@4, tmp, $4);
+	set_type_id_range($$, tmp, $5, @5, $6);
       }
   ;
 
@@ -5408,7 +5482,7 @@ hierarchy_identifier
 
 index_components_opt
   : index_components
-  |
+  | %prec no_index_components
       { $$ = nullptr; }
   ;
 
@@ -6098,15 +6172,66 @@ module_item
   | K_pulldown '(' dr_strength0 ',' dr_strength1 ')' gate_instance_list ';'
       { pform_makegates(@1, PGBuiltin::PULLDOWN, $3, 0, $7, 0); }
 
-  /* Parameterized module and primitive instances are unambiguous after '#'.
-     Unparameterized instances share a prefix with named declarations and are
-     handled by identifier_module_item. */
+  /* Parameterized module instances share a prefix with declarations of
+     variables with a class specialization type, e.g. "C #(8) h;". These
+     rules mirror identifier_module_item. */
 
   | attribute_list_opt
-	  IDENTIFIER parameter_value_assignment gate_instance_list ';'
-      { perm_string tmp1 = lex_strings.make($2);
-		  pform_make_modgates(@2, tmp1, $3, $4, $1);
-		  delete[]$2;
+	  IDENTIFIER parameter_value_assignment IDENTIFIER gate_instance_ports
+	  gate_instance_continue ';'
+      { std::unique_ptr<lgate> instance($5);
+	instance->name = $4;
+	FILE_NAME(instance.get(), @4);
+	$6->insert($6->begin(), *instance);
+	perm_string tmp1 = lex_strings.make($2);
+	pform_make_modgates(@2, tmp1, $3, $6, $1);
+	delete[]$2;
+	delete[]$4;
+      }
+  | attribute_list_opt
+	  IDENTIFIER parameter_value_assignment gate_instance_positional_connections
+	  gate_instance_continue ';'
+      { std::unique_ptr<lgate> instance($4);
+	instance->name = "";
+	FILE_NAME(instance.get(), @4);
+	$5->insert($5->begin(), *instance);
+	perm_string tmp1 = lex_strings.make($2);
+	pform_make_modgates(@2, tmp1, $3, $5, $1);
+	delete[]$2;
+      }
+  | attribute_list_opt
+	  IDENTIFIER parameter_value_assignment list_of_variable_decl_assignments ';'
+      { if (decl_assignments_require_type(*$4) ||
+	    pform_test_type_identifier(@2, $2)) {
+	      auto type = pform_new_type_identifier(@2, nullptr, $2, $3);
+	      pform_make_var(@2, $4, type, $1, false);
+	      var_lifetime = LexicalScope::INHERITED;
+	      delete $1;
+	} else {
+	      std::unique_ptr<std::vector<lgate>> gates(new std::vector<lgate>);
+	      append_no_port_gate_instances(*gates,
+		    std::unique_ptr<std::list<decl_assignment_t*>>($4));
+	      perm_string tmp1 = lex_strings.make($2);
+	      pform_make_modgates(@2, tmp1, $3, gates.release(), $1);
+	      delete[]$2;
+	}
+      }
+  | attribute_list_opt
+	  IDENTIFIER parameter_value_assignment list_of_variable_decl_assignments ','
+	  IDENTIFIER gate_instance_ports gate_instance_continue ';'
+      { std::unique_ptr<std::vector<lgate>> gates(new std::vector<lgate>);
+	append_no_port_gate_instances(*gates,
+		    std::unique_ptr<std::list<decl_assignment_t*>>($4));
+	std::unique_ptr<lgate> instance($7);
+	instance->name = $6;
+	FILE_NAME(instance.get(), @6);
+	gates->push_back(*instance);
+	gates->insert(gates->end(), $8->begin(), $8->end());
+	delete $8;
+	perm_string tmp1 = lex_strings.make($2);
+	pform_make_modgates(@2, tmp1, $3, gates.release(), $1);
+	delete[]$2;
+	delete[]$6;
       }
 
         | attribute_list_opt
