@@ -784,6 +784,22 @@ const netclass_t* netclass_t::specialize(Design*des, NetScope*scope,
 	    }
       }
 
+	// A type is not a valid value for a value parameter. Report it
+	// here, the parameter evaluation does not handle it well.
+      for (auto cur = replace.begin() ; cur != replace.end() ; ) {
+	    if (dynamic_cast<const PETypename*>(cur->second)
+		&& !pclass->parameters[cur->first]->type_flag) {
+		  cerr << cur->second->get_fileline() << ": error: "
+		       << "Parameter `" << cur->first << "` of class `"
+		       << base->get_name() << "` is not a type parameter."
+		       << endl;
+		  des->errors += 1;
+		  cur = replace.erase(cur);
+	    } else {
+		  ++cur;
+	    }
+      }
+
       if (replace.empty())
 	    return base;
 
