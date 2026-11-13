@@ -4838,6 +4838,11 @@ type_value
 	FILE_NAME(tmp, @1);
 	$$ = tmp;
       }
+  | IDENTIFIER parameter_value_assignment
+      { auto tmp = new PETypename(pform_new_type_identifier(@1, nullptr, $1, $2));
+	FILE_NAME(tmp, @1);
+	$$ = tmp;
+      }
   ;
 
   /* SystemVerilog: a().b() — call a function, then invoke a method on the
