@@ -1,9 +1,11 @@
 // Check that each specialization of a parameterized class is a type of its
 // own with its own static properties, and that specializations with the same
-// parameter values are the same type.
+// parameter values are the same type. Static initializers of a
+// specialization run before the initial blocks of the design.
 
 class C #(int N = 4);
   static int count = 0;
+  static int init = N * 2 + 1;
 
   function new();
     count++;
@@ -20,6 +22,8 @@ module test;
   bit failed = 0;
 
   initial begin
+    if (a1.init != 9 || d1.init != 17 || e.init != 33) failed = 1;
+
     a1 = new;
     b = new;
     c = new;

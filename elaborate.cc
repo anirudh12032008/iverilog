@@ -7518,7 +7518,13 @@ void netclass_t::elaborate(Design*des, PClass*pclass)
 	    }
 	    NetProcTop*top = new NetProcTop(class_scope_, IVL_PR_INITIAL, stmt);
 	    top->set_line(*pclass);
-	    des->add_process(top);
+	      // A specialization of a parameterized class is elaborated
+	      // after the rest of the design. Still initialize its static
+	      // properties before the other processes run.
+	    if (generic_)
+		  des->add_process_first(top);
+	    else
+		  des->add_process(top);
       }
 
       for (map<perm_string,PFunction*>::iterator cur = pclass->funcs.begin()

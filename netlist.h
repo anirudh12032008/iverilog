@@ -5359,6 +5359,10 @@ class Design {
 
 	// PROCESSES
       void add_process(NetProcTop*);
+	// Add a process that runs before the processes already added,
+	// for example the static initialization of a class that is
+	// elaborated late.
+      void add_process_first(NetProcTop*);
       void add_process(NetAnalogTop*);
       void delete_process(NetProcTop*);
       bool check_proc_delay() const;
