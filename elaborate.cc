@@ -2972,8 +2972,9 @@ NetProc* PAssign::elaborate_compressed_(Design*des, NetScope*scope) const
 	    force_unsigned = !lv->get_signed();
 	    break;
       }
-      NetExpr*rv = elaborate_rval_(des, scope, 0, lv->expr_type(),
-				   count_lval_width(lv), force_unsigned);
+      const auto lval_info = get_lval_info(lv);
+      NetExpr*rv = elaborate_rval_(des, scope, 0, lval_info.type,
+				   lval_info.width, force_unsigned);
       if (rv == 0) return 0;
 
 	// The ivl_target API doesn't support signalling the type
@@ -3018,6 +3019,7 @@ NetProc* PAssign::elaborate(Design*des, NetScope*scope) const
 	   expressions that might exist. */
       NetAssign_*lv = elaborate_lval(des, scope);
       if (lv == 0) return 0;
+      const auto lval_info = get_lval_info(lv);
 
       if (scope->program_block() && lval_not_program_variable(lv)) {
 	    cerr << get_fileline() << ": warning: Program blocking "
@@ -3084,7 +3086,8 @@ NetProc* PAssign::elaborate(Design*des, NetScope*scope) const
 
       } else {
 	      /* Elaborate the r-value expression, then try to evaluate it. */
-	    rv = elaborate_rval_(des, scope, lv_net_type, lv->expr_type(), count_lval_width(lv));
+	    rv = elaborate_rval_(des, scope, lv_net_type, lval_info.type,
+				 lval_info.width);
       }
 
       if (rv == 0) {
@@ -3276,7 +3279,9 @@ NetProc* PAssignNB::elaborate(Design*des, NetScope*scope) const
 	         << endl;
       }
 
-      NetExpr*rv = elaborate_rval_(des, scope, lv->net_type(), lv->expr_type(), count_lval_width(lv));
+      const auto lval_info = get_lval_info(lv);
+      NetExpr*rv = elaborate_rval_(des, scope, lv->net_type(),
+				   lval_info.type, lval_info.width);
       if (rv == 0) return 0;
 
       NetExpr*delay = 0;
@@ -4917,8 +4922,7 @@ NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 	    }
 
 	    NetAssign_*lv = new NetAssign_(port);
-	    unsigned wid = count_lval_width(lv);
-	    ivl_variable_type_t lv_type = lv->expr_type();
+	    const auto lval_info = get_lval_info(lv);
 
 	    NetExpr*rv = 0;
 
@@ -4948,8 +4952,10 @@ NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 			des->errors += 1;
 		  }
 		  rv = def->port_defe(idx)->dup_expr();
-		  if (lv_type==IVL_VT_BOOL||lv_type==IVL_VT_LOGIC)
-			rv = pad_to_width(rv, wid, *this);
+		  if (lval_info.type == IVL_VT_BOOL ||
+		      lval_info.type == IVL_VT_LOGIC) {
+			rv = pad_to_width(rv, lval_info.width, *this);
+		  }
 
 	    } else {
 		  cerr << get_fileline() << ": error: "
@@ -5021,17 +5027,17 @@ NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 	    NetExpr*rv = new NetESignal(port);
 
 	      /* Handle any implicit cast. */
-	    unsigned lv_width = count_lval_width(lv);
-	    if (lv->expr_type() != rv->expr_type()) {
-		  switch (lv->expr_type()) {
+	    const auto lval_info = get_lval_info(lv);
+	    if (lval_info.type != rv->expr_type()) {
+		  switch (lval_info.type) {
 		      case IVL_VT_REAL:
 			rv = cast_to_real(rv);
 			break;
 		      case IVL_VT_BOOL:
-			rv = cast_to_int2(rv, lv_width);
+			rv = cast_to_int2(rv, lval_info.width);
 			break;
 		      case IVL_VT_LOGIC:
-			rv = cast_to_int4(rv, lv_width);
+			rv = cast_to_int4(rv, lval_info.width);
 			break;
 		      default:
 			cerr << get_fileline() << ": error: "
@@ -5039,7 +5045,7 @@ NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 			     << task->basename() << "' is called with '";
 			lv->dump_lval(cerr);
 			cerr << "' which has type '"
-			     << lv->expr_type() << "'." << endl;
+			     << lval_info.type << "'." << endl;
 			cerr << get_fileline() << ":      : "
 			        "The task expects to return type '"
 			     << rv->expr_type() << "'." << endl;
@@ -5049,7 +5055,7 @@ NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 			continue;
 		  }
 	    }
-	    rv = pad_to_width(rv, lv_width, *this);
+	    rv = pad_to_width(rv, lval_info.width, *this);
 
 	      /* Generate the assignment statement. */
 	    NetAssign*ass = new NetAssign(lv, rv);
@@ -5290,10 +5296,10 @@ NetCAssign* PCAssign::elaborate(Design*des, NetScope*scope) const
 	    return 0;
       }
 
-      unsigned lwid = count_lval_width(lval);
-      ivl_variable_type_t ltype = lval->expr_type();
+      const auto lval_info = get_lval_info(lval);
 
-      NetExpr*rexp = elaborate_rval_expr(des, scope, lval->net_type(), ltype, lwid, expr_);
+      NetExpr*rexp = elaborate_rval_expr(des, scope, lval->net_type(),
+					   lval_info.type, lval_info.width, expr_);
       if (rexp == 0)
 	    return 0;
 
@@ -5301,7 +5307,7 @@ NetCAssign* PCAssign::elaborate(Design*des, NetScope*scope) const
 
       if (debug_elaborate) {
 	    cerr << get_fileline() << ": debug: Elaborate cassign,"
-		 << " lval width=" << lwid
+		 << " lval width=" << lval_info.width
 		 << " rval width=" << rexp->expr_width()
 		 << " rval=" << *rexp
 		 << endl;
@@ -6152,14 +6158,14 @@ NetForce* PForce::elaborate(Design*des, NetScope*scope) const
 	    return 0;
       }
 
-      unsigned lwid = count_lval_width(lval);
-      ivl_variable_type_t ltype = lval->expr_type();
+      const auto lval_info = get_lval_info(lval);
 
 	// Like a variety of other assigns, we need to figure out a
 	// better way to get a reasonable lv_net_type value, and that
 	// probably will involve NetAssign_ having a method for
 	// synthesizing one as needed.
-      NetExpr*rexp = elaborate_rval_expr(des, scope, lval->net_type(), ltype, lwid, expr_);
+      NetExpr*rexp = elaborate_rval_expr(des, scope, lval->net_type(),
+					   lval_info.type, lval_info.width, expr_);
       if (rexp == 0)
 	    return 0;
 
