@@ -167,6 +167,7 @@ static int array_word_vec_get(int code, const vvp_array_t arr)
 	  dynamic_cast<vvp_darray_object*> (arr->vals))
 	    return 0;
 
+	// Same rule as signal_get() in vpi_signal.cc; keep them in sync.
       bool vec = arr->vec_flag || arr->vals_width > 1;
       return (code == vpiVector)? vec : !vec;
 }
@@ -390,6 +391,7 @@ int __vpiArrayWord::as_word_t::vpi_get(int code)
 
 	  case vpiScalar:
 	  case vpiVector:
+	      // Words of other containers (e.g. darrays) do not answer.
 	    if (struct __vpiArray*base = dynamic_cast<__vpiArray*> (my_parent))
 		  return array_word_vec_get(code, base);
 	    return 0;
@@ -523,6 +525,8 @@ vpiHandle __vpiArrayVthrA::vpi_handle(int code)
 }
 
 
+// Deliberately no vpiScalar/vpiVector: this is an internal part-select
+// handle, not a declared object.
 int __vpiArrayVthrAPV::vpi_get(int code)
 {
       switch (code) {

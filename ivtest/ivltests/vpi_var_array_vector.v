@@ -20,8 +20,25 @@ module test;
   logic [0:0][0:0] p2_arr [1:0];
   reg [0:0]     v_down [1:0];
   reg [0:0]     v_up [0:1];
+  wire [0:0]    n_v [1:0];
+  wire          n_s [1:0];
+  assign n_v[0] = 1'b0;
+  assign n_v[1] = 1'b0;
+  assign n_s[0] = 1'b0;
+  assign n_s[1] = 1'b0;
+  reg [0:0]     two_d [1:0][1:0];
+  reg           two_d_s [1:0][1:0];
   integer       idx;
   integer       failed;
+
+  task automatic auto_check;
+    reg [0:0] a_v [1:0];
+    reg       a_s [1:0];
+    begin
+      failed |= $check_sv(a_v[0], 1, 1);
+      failed |= $check_sv(a_s[0], 0, 1);
+    end
+  endtask
 
   initial begin
     failed = 0;
@@ -41,6 +58,12 @@ module test;
     failed |= $check_sv(i_arr[0], 1, 32);
     failed |= $check_sv(int_arr[1], 1, 32);
     failed |= $check_sv(p2_arr[0], 1, 1);
+    // Net arrays, two-dimensional arrays and automatic arrays.
+    failed |= $check_sv(n_v[0], 1, 1);
+    failed |= $check_sv(n_s[1], 0, 1);
+    failed |= $check_sv(two_d[0][1], 1, 1);
+    failed |= $check_sv(two_d_s[1][0], 0, 1);
+    auto_check;
     // Variable word select.
     failed |= $check_sv(s_reg[idx], 0, 1);
     failed |= $check_sv(v00_reg[idx], 1, 1);

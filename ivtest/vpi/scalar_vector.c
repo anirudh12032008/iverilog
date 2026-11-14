@@ -79,6 +79,10 @@ static PLI_INT32 check_sv_words(PLI_BYTE8*data)
       int failed = 0;
       vpiHandle words = vpi_iterate(vpiMemoryWord, arr);
       vpiHandle word;
+      if (!words) {
+	    vpi_printf("FAILED: %s: no words to iterate\n", name);
+	    failed = 1;
+      }
       while (words && (word = vpi_scan(words)))
 	    failed |= check_obj(word, name, is_vector, size);
       set_result(call, failed);

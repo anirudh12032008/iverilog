@@ -511,8 +511,7 @@ An optional ``[`` may follow the word range, as in
 ``.var``, and is given when the words were declared with a packed range and
 <msb> equals <lsb>, so that the words report ``vpiVector`` instead of
 ``vpiScalar``. Words wider than one bit are always vectors. The real,
-string and object forms have no word range and no marker. Older VVP runtimes do not
-accept the marker.
+string and object forms have no word range and no marker.
 
 The syntax below is different, in that it creates an alias for an
 existing array. The dimensions and storage are taken from the .array
