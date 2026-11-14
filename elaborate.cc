@@ -7424,6 +7424,8 @@ static void elaborate_classes(Design*des, NetScope*scope,
       for (map<perm_string,PClass*>::const_iterator cur = classes.begin()
 		 ; cur != classes.end() ; ++ cur) {
 	    netclass_t*use_class = scope->find_class(des, cur->second->pscope_name());
+	    if (use_class->is_template())
+		  continue;
 	    elaborate_class(des, use_class, cur->second);
       }
 }
