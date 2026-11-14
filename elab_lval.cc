@@ -1213,8 +1213,13 @@ NetAssign_* PEIdent::elaborate_lval_net_class_member_(Design*des, NetScope*scope
 			des->errors++;
 		  } else if (!member_cur.index.empty()) {
 			const index_component_t&use_index = member_cur.index.back();
-			ivl_assert(*this, use_index.lsb == 0);
-			if (use_index.sel == index_component_t::SEL_BIT_LAST) {
+			if (use_index.sel != index_component_t::SEL_BIT &&
+			    use_index.sel != index_component_t::SEL_BIT_LAST) {
+			      cerr << get_fileline() << ": error: "
+				   << "A part select of a queue/dynamic array "
+				   << "property is not supported." << endl;
+			      des->errors++;
+			} else if (use_index.sel == index_component_t::SEL_BIT_LAST) {
 			      if (!dynamic_cast<const netqueue_t*>(ptype)) {
 				    cerr << get_fileline() << ": error: "
 					 << "The $ index is only allowed for queues."

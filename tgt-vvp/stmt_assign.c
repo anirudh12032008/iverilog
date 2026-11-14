@@ -1316,14 +1316,6 @@ static int show_stmt_assign_sig_cobject(ivl_statement_t net)
 		  ivl_type_t element_type = ivl_type_element(prop_type);
 		  const char*type_code;
 
-		  if (ivl_stmt_opcode(net) != 0) {
-			fprintf(stderr, "%s:%u: sorry: Assignment operators on "
-			        "elements of queue/dynamic array properties "
-			        "are not supported.\n",
-			        ivl_stmt_file(net), ivl_stmt_lineno(net));
-			errors += 1;
-		  }
-
 		  switch (ivl_type_base(element_type)) {
 		      case IVL_VT_REAL:
 			draw_eval_real(rval);

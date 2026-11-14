@@ -3869,7 +3869,14 @@ NetExpr* PEIdent::elaborate_expr_class_field_(Design*des, NetScope*scope,
 		  des->errors++;
 	    } else {
 		  const index_component_t&use_index = idx_list->back();
-		  ivl_assert(*this, use_index.lsb == 0);
+		  if (use_index.sel != index_component_t::SEL_BIT &&
+		      use_index.sel != index_component_t::SEL_BIT_LAST) {
+			cerr << get_fileline() << ": error: "
+			     << "A part select of a queue/dynamic array "
+			     << "property is not supported." << endl;
+			des->errors++;
+			return nullptr;
+		  }
 		  if (use_index.sel == index_component_t::SEL_BIT_LAST) {
 			if (!dynamic_cast<const netqueue_t*>(tmp_type)) {
 			      cerr << get_fileline() << ": error: "
