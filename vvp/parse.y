@@ -221,22 +221,22 @@ statement
 
   /* Memory.  Definition, port, initialization */
 
-        | T_LABEL K_ARRAY T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number ';'
-                { compile_var_array($1, $3, $5, $6, $8, $9, 0); }
+        | T_LABEL K_ARRAY T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number vec_flag ';'
+                { compile_var_array($1, $3, $5, $6, $8, $9, $10, 0); }
 
-        | T_LABEL K_ARRAY_2U T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number ';'
-                { compile_var2_array($1, $3, $5, $6, $8, $9, false); }
-        | T_LABEL K_ARRAY_2S T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number ';'
-                { compile_var2_array($1, $3, $5, $6, $8, $9, true); }
+        | T_LABEL K_ARRAY_2U T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number vec_flag ';'
+                { compile_var2_array($1, $3, $5, $6, $8, $9, $10, false); }
+        | T_LABEL K_ARRAY_2S T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number vec_flag ';'
+                { compile_var2_array($1, $3, $5, $6, $8, $9, $10, true); }
 
-        | T_LABEL K_ARRAY_I T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number ';'
-                { compile_var_array($1, $3, $5, $6, $8, $9, 2); }
+        | T_LABEL K_ARRAY_I T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number vec_flag ';'
+                { compile_var_array($1, $3, $5, $6, $8, $9, $10, 2); }
 
         | T_LABEL K_ARRAY_R T_STRING ',' signed_t_number signed_t_number ';'
                 { compile_real_array($1, $3, $5, $6); }
 
-        | T_LABEL K_ARRAY_S T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number ';'
-                { compile_var_array($1, $3, $5, $6, $8, $9, 1); }
+        | T_LABEL K_ARRAY_S T_STRING ',' signed_t_number signed_t_number ',' signed_t_number signed_t_number vec_flag ';'
+                { compile_var_array($1, $3, $5, $6, $8, $9, $10, 1); }
 
         | T_LABEL K_ARRAY_STR T_STRING ',' signed_t_number signed_t_number ';'
                 { compile_string_array($1, $3, $5, $6); }

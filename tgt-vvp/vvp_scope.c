@@ -535,10 +535,11 @@ static void draw_reg_in_scope(ivl_signal_t sig)
 	    unsigned swapped = ivl_signal_array_addr_swapped(sig);
 	    int last = ivl_signal_array_base(sig)+word_count-1;
 	    int first = ivl_signal_array_base(sig);
-	    fprintf(vvp_out, "v%p .array%s \"%s\", %d %d, %d %d;\n",
+	    fprintf(vvp_out, "v%p .array%s \"%s\", %d %d, %d %d%s;\n",
 		    sig, datatype_flag,
 		    vvp_mangle_name(ivl_signal_basename(sig)),
-		    swapped ? first: last, swapped ? last : first, msb, lsb);
+		    swapped ? first: last, swapped ? last : first, msb, lsb,
+		    vec_flag_str(sig, msb, lsb));
 
       } else if (ivl_signal_data_type(sig) == IVL_VT_DARRAY) {
 	    ivl_type_t var_type = ivl_signal_net_type(sig);

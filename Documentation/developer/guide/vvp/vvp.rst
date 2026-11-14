@@ -499,6 +499,21 @@ declared separately, this statement collects them together::
 the .var or .net statements after this array statement, that have the
 same "name" are collected, in order, as words.
 
+An array of variables holds its words inside the .array statement, so the
+statement also carries their width and type. The ``.array``, ``.array/s``,
+``.array/i``, ``.array/2s`` and ``.array/2u`` forms take the msb and lsb of
+a word::
+
+	<label> .array "name", <last> <first>, <msb> <lsb> ;
+
+An optional ``[`` may follow the word range, as in
+``.array "name", 1 0, 0 0 [;``. It is the same marker described for
+``.var``, and is given when the words were declared with a packed range and
+<msb> equals <lsb>, so that the words report ``vpiVector`` instead of
+``vpiScalar``. Words wider than one bit are always vectors. The real,
+string and object forms have no word range and no marker. Older VVP runtimes do not
+accept the marker.
+
 The syntax below is different, in that it creates an alias for an
 existing array. The dimensions and storage are taken from the .array
 at <src>.

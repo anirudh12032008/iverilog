@@ -845,6 +845,8 @@ struct __vpiArray : public __vpiArrayBase, public __vpiHandle {
       struct __vpiCallback *vpi_callbacks;
       bool signed_flag;
       bool swap_addr;
+	// Words were declared with a packed range, so they are vectors.
+      bool vec_flag;
 
 private:
       unsigned array_count;

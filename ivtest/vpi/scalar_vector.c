@@ -17,6 +17,20 @@ static void set_result(vpiHandle call, int failed)
       vpi_put_value(call, &value, 0, vpiNoDelay);
 }
 
+static int check_obj(vpiHandle obj, const char*name, int is_vector, int size)
+{
+      int failed = vpi_get(vpiVector, obj) != is_vector ||
+	  vpi_get(vpiScalar, obj) != !is_vector ||
+	  vpi_get(vpiSize, obj) != size;
+      if (failed)
+	    vpi_printf("FAILED: %s: vpiVector=%d (exp %d) vpiScalar=%d (exp %d)"
+		       " vpiSize=%d (exp %d)\n", name,
+		       (int)vpi_get(vpiVector, obj), is_vector,
+		       (int)vpi_get(vpiScalar, obj), !is_vector,
+		       (int)vpi_get(vpiSize, obj), size);
+      return failed;
+}
+
 static PLI_INT32 check_sv(PLI_BYTE8*data)
 {
       (void)data;
@@ -35,15 +49,38 @@ static PLI_INT32 check_sv(PLI_BYTE8*data)
       int size = value.value.integer;
       vpi_free_object(args);
 
-      int failed = vpi_get(vpiVector, obj) != is_vector ||
-	  vpi_get(vpiScalar, obj) != !is_vector ||
-	  vpi_get(vpiSize, obj) != size;
-      if (failed)
-	    vpi_printf("FAILED: %s: vpiVector=%d (exp %d) vpiScalar=%d (exp %d)"
-		       " vpiSize=%d (exp %d)\n", name,
-		       (int)vpi_get(vpiVector, obj), is_vector,
-		       (int)vpi_get(vpiScalar, obj), !is_vector,
-		       (int)vpi_get(vpiSize, obj), size);
+      int failed = check_obj(obj, name, is_vector, size);
+      set_result(call, failed);
+      return 0;
+}
+
+/*
+ * $check_sv_words(array, is_vector, size): like $check_sv, but applied
+ * to every word returned by iterating vpiMemoryWord on the array.
+ */
+static PLI_INT32 check_sv_words(PLI_BYTE8*data)
+{
+      (void)data;
+      vpiHandle call = vpi_handle(vpiSysTfCall, 0);
+      vpiHandle args = vpi_iterate(vpiArgument, call);
+      s_vpi_value value;
+
+      vpiHandle arr = vpi_scan(args);
+      const char*name = vpi_get_str(vpiFullName, arr);
+
+      value.format = vpiIntVal;
+      vpi_get_value(vpi_scan(args), &value);
+      int is_vector = value.value.integer;
+
+      vpi_get_value(vpi_scan(args), &value);
+      int size = value.value.integer;
+      vpi_free_object(args);
+
+      int failed = 0;
+      vpiHandle words = vpi_iterate(vpiMemoryWord, arr);
+      vpiHandle word;
+      while (words && (word = vpi_scan(words)))
+	    failed |= check_obj(word, name, is_vector, size);
       set_result(call, failed);
       return 0;
 }
@@ -55,6 +92,10 @@ static void register_tasks(void)
       tf.sysfunctype = vpiIntFunc;
       tf.tfname = "$check_sv";
       tf.calltf = check_sv;
+      vpi_register_systf(&tf);
+
+      tf.tfname = "$check_sv_words";
+      tf.calltf = check_sv_words;
       vpi_register_systf(&tf);
 }
 

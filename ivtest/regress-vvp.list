@@ -1145,6 +1145,7 @@ vpi_net_array_word_select_signedness	vvp_tests/vpi_net_array_word_select_signedn
 vpi_part_select_range		vvp_tests/vpi_part_select_range.json
 vpi_queue_pattern_prefix	vvp_tests/vpi_queue_pattern_prefix.json
 vpi_scalar_vector		vvp_tests/vpi_scalar_vector.json
+vpi_var_array_vector		vvp_tests/vpi_var_array_vector.json
 vpi_short_package_fullname	vvp_tests/vpi_short_package_fullname.json
 vpi_vector4_integer		vvp_tests/vpi_vector4_integer.json
 vvp_quiet_mode			vvp_tests/vvp_quiet_mode.json
