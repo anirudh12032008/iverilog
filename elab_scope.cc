@@ -817,9 +817,13 @@ const netclass_t* netclass_t::specialize(Design*des, NetScope*scope,
 	// existing specializations.
       NetScope*def_scope = base->definition_scope_;
       string probe_name = string(base->get_name()) + "#";
+	// Evaluating a parameter value can specialize a class while this
+	// probe scope exists, so the probe names cannot be derived from the
+	// number of specializations.
+      static unsigned probe_count = 0;
       netclass_t*use_class = elaborate_scope_class_start(des, def_scope, pclass,
 		    hname_t(lex_strings.make(probe_name),
-			    base->specializations_.size()));
+			    probe_count++));
       NetScope*class_scope = use_class->class_scope_;
 
       for (const auto&cur : replace)
