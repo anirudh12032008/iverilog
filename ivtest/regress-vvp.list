@@ -139,6 +139,7 @@ br_gh1692b			vvp_tests/br_gh1692b.json
 br_gh1692c			vvp_tests/br_gh1692c.json
 br_gh1692d			vvp_tests/br_gh1692d.json
 br_gh1699			vvp_tests/br_gh1699.json
+br_gh1706			vvp_tests/br_gh1706.json
 br_gh1711a			vvp_tests/br_gh1711a.json
 br_gh1711b			vvp_tests/br_gh1711b.json
 br_gh1730			vvp_tests/br_gh1730.json
