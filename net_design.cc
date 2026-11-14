@@ -505,6 +505,8 @@ void Design::evaluate_parameters()
 		 ; scope != root_scopes_.end() ; ++ scope ) {
 	    (*scope)->evaluate_parameters(this);
       }
+
+      parameters_evaluated = true;
 }
 
 /*

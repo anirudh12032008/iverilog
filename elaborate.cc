@@ -1422,7 +1422,7 @@ static bool resolve_interface_actual_scope(const PExpr*actual,
       res = interface_actual_scope_t();
 
       const PEIdent*actual_ident = dynamic_cast<const PEIdent*>(actual);
-      if (!actual_ident || actual_ident->path().package ||
+      if (!actual_ident || actual_ident->path().is_scoped() ||
 	  actual_ident->path().name.size() != 1 ||
 	  actual_ident->path().name.front().index.size() > 1) {
 	    return false;
@@ -1496,7 +1496,7 @@ static bool resolve_interface_actual_array(const PExpr*actual,
       res = interface_actual_array_t();
 
       const PEIdent*actual_ident = dynamic_cast<const PEIdent*>(actual);
-      if (!actual_ident || actual_ident->path().package ||
+      if (!actual_ident || actual_ident->path().is_scoped() ||
 	  actual_ident->path().name.size() != 1 ||
 	  !actual_ident->path().name.front().index.empty())
 	    return false;
@@ -4005,6 +4005,15 @@ NetProc* PCallTask::elaborate_usr(Design*des, NetScope*scope) const
 	    if (!search_results.require_non_type(
 			this, des, "in a task or function call"))
 		  return nullptr;
+
+	    if (path_.class_scope && search_results.is_scope()
+		&& search_results.scope->get_class_scope()) {
+		  cerr << get_fileline() << ": sorry: Calling the class method `"
+		       << path_ << "' through a class scope is not yet "
+		       << "supported." << endl;
+		  des->errors += 1;
+		  return nullptr;
+	    }
 
 	    if (search_results.is_scope()) {
 		  if (search_results.scope->type() == NetScope::TASK)
@@ -6948,7 +6957,7 @@ static std::string ordinary_path_condition_name(Design*des, NetScope*scope,
                                                bool comparison = false)
 {
       const PEIdent*id = dynamic_cast<const PEIdent*>(expr);
-      if (!id || id->path().package || id->path().name.size() != 1
+      if (!id || id->path().is_scoped() || id->path().name.size() != 1
           || !id->path().name.front().index.empty()) return {};
       NetNet*sig = des->find_signal(scope, id->path().name);
       if (!sig || sig->scope() != scope || sig->vector_width() != 1

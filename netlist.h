@@ -5335,6 +5335,9 @@ class Design {
       std::list<netclass_t*> class_specializations_sig;
       std::list<netclass_t*> class_specializations_elab;
       bool class_specializations_sig_done = false;
+	// Set once the parameters of all the scopes are evaluated. Class
+	// specializations made after that evaluate their own.
+      bool parameters_evaluated = false;
 
 	// PARAMETERS
 

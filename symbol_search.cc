@@ -635,6 +635,19 @@ bool symbol_search(const LineInfo *li, Design *des, NetScope *scope,
 	    if (!search_scope)
 		  return false;
 	    scope_is_bound = true;
+      } else if (path.class_scope) {
+	    ivl_type_t type = path.class_scope->elaborate_type(des, scope);
+	    auto class_type = dynamic_cast<const netclass_t*>(type);
+	    if (!class_type) {
+		  if (type)
+			cerr << li->get_fileline() << ": error: `"
+			     << *path.class_scope << "` is not a class, so "
+			     << "it can not be used as a scope." << endl;
+		  des->errors += 1;
+		  return false;
+	    }
+	    search_scope = const_cast<NetScope*>(class_type->class_scope());
+	    scope_is_bound = true;
       }
 
       const bool allow_forward_reference =
