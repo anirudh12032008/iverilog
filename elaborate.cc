@@ -4008,11 +4008,13 @@ NetProc* PCallTask::elaborate_usr(Design*des, NetScope*scope) const
 
 	    if (path_.class_scope && search_results.is_scope()
 		&& search_results.scope->get_class_scope()) {
-		  cerr << get_fileline() << ": sorry: Calling the class method `"
-		       << path_ << "' through a class scope is not yet "
-		       << "supported." << endl;
-		  des->errors += 1;
-		  return nullptr;
+		  NetScope*method = search_results.scope;
+		  NetExpr*this_expr = class_scope_method_this(*this, des, method,
+							      path_);
+		  if (!this_expr)
+			return nullptr;
+		  return elaborate_build_call_(des, scope, method, this_expr,
+					       true);
 	    }
 
 	    if (search_results.is_scope()) {

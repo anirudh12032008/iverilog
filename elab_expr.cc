@@ -3970,12 +3970,17 @@ NetExpr* PECallFunction::elaborate_expr_(Design*des, NetScope*scope,
 	    return 0;
 
       if (path_.class_scope && search_results.is_scope()
+	  && search_results.scope->type() == NetScope::FUNC
 	  && search_results.scope->get_class_scope()) {
-	    cerr << get_fileline() << ": sorry: Calling the class method `"
-		 << path_ << "' through a class scope is not yet supported."
-		 << endl;
-	    des->errors += 1;
-	    return 0;
+	    NetScope*method = search_results.scope;
+	    NetExpr*this_expr = class_scope_method_this(*this, des, method,
+							path_);
+	    if (!this_expr)
+		  return 0;
+	    return elaborate_class_method_net_this_(
+		  des, scope, this_expr,
+		  method->get_class_scope()->class_def(),
+		  method->basename(), nullptr, true);
       }
 
       // If the symbol is found, but is not a scope...
