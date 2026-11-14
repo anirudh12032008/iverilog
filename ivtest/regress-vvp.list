@@ -639,6 +639,7 @@ sv_class_param_name_fail	vvp_tests/sv_class_param_name_fail.json
 sv_class_param_nested		vvp_tests/sv_class_param_nested.json
 sv_class_param_nodefault_fail	vvp_tests/sv_class_param_nodefault_fail.json
 sv_class_param_nonparam_fail	vvp_tests/sv_class_param_nonparam_fail.json
+sv_class_param_recurse_fail	vvp_tests/sv_class_param_recurse_fail.json
 sv_class_param_scope		vvp_tests/sv_class_param_scope.json
 sv_class_param_self		vvp_tests/sv_class_param_self.json
 sv_class_param_static		vvp_tests/sv_class_param_static.json
