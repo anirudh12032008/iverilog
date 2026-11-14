@@ -1,7 +1,7 @@
 /*
- * $check_sv(name, is_vector, size): returns 0 if the checks pass, else 1.
+ * $check_sv(signal, is_vector, size): returns 0 if the checks pass, else 1.
  * Check that vpiVector, vpiScalar and
- * vpiSize of the object with the given full name match the expectation.
+ * vpiSize of the signal argument match the expectation.
  * is_vector is 1 for an object declared with a packed range (even if the
  * range has a single element) and 0 for a plain scalar.
  */
@@ -24,9 +24,8 @@ static PLI_INT32 check_sv(PLI_BYTE8*data)
       vpiHandle args = vpi_iterate(vpiArgument, call);
       s_vpi_value value;
 
-      value.format = vpiStringVal;
-      vpi_get_value(vpi_scan(args), &value);
-      const char*name = value.value.str;
+      vpiHandle obj = vpi_scan(args);
+      const char*name = vpi_get_str(vpiFullName, obj);
 
       value.format = vpiIntVal;
       vpi_get_value(vpi_scan(args), &value);
@@ -35,13 +34,6 @@ static PLI_INT32 check_sv(PLI_BYTE8*data)
       vpi_get_value(vpi_scan(args), &value);
       int size = value.value.integer;
       vpi_free_object(args);
-
-      vpiHandle obj = vpi_handle_by_name((PLI_BYTE8*)name, 0);
-      if (!obj) {
-	    vpi_printf("FAILED: %s not found\n", name);
-	    set_result(call, 1);
-	    return 0;
-      }
 
       int failed = vpi_get(vpiVector, obj) != is_vector ||
 	  vpi_get(vpiScalar, obj) != !is_vector ||

@@ -333,14 +333,20 @@ and ``/i`` forms. It identifies the enum typespec exposed through
 ``vpi_handle(vpiTypespec, variable)``; it does not change the stored value.
 Declarations without this reference retain their existing behavior.
 
-A single-bit signal declared with a packed range, such as ``logic [0:0]``,
-is a vector for VPI purposes (``vpiVector``) but has the same <msb> <lsb> as a
-scalar. The code generator marks it with a ``[`` after the range, in the
-``.var`` and ``.net`` forms::
+Older VVP runtimes do not accept declarations containing this reference.
+
+A signal declared with a packed range, such as ``logic [0:0]``, is a vector
+for VPI purposes (``vpiVector``), but when the range has one element its
+<msb> <lsb> are the same as for a scalar. In that case, and only when
+<msb> equals <lsb> and the signal was declared with a packed range, the
+code generator adds a ``[`` after the range in the ``.var`` and ``.net``
+forms::
 
         <label> .var "name", 0 0 [;
         <label> .net "name", 0 0 [, <symbol>;
-Older VVP runtimes do not accept declarations containing this reference.
+
+Without the marker a one-bit signal is a scalar (``vpiScalar``). Older VVP
+runtimes do not accept the marker.
 
 The "name" is the declared base name of the original variable, for the
 sake of VPI code that might access it. The variable is placed in the
@@ -387,6 +393,9 @@ Like a .var statement, the .net statement creates a VPI object with
 the basename and dimensions given as parameters. The symbol is a
 functor that feeds into the vector of the net, and the vpiHandle
 holds references to that functor.
+
+A ``.net`` of one bit declared with a packed range carries the same ``[``
+marker after its range as a ``.var``, described above.
 
 The input of a .net is replicated to its output. In this sense, it
 acts like a diode. The purpose of this node is to hold various VPI
