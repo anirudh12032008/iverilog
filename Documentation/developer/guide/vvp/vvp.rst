@@ -332,6 +332,14 @@ This optional reference is also accepted by the ``/s``, ``/2u``, ``/2s``
 and ``/i`` forms. It identifies the enum typespec exposed through
 ``vpi_handle(vpiTypespec, variable)``; it does not change the stored value.
 Declarations without this reference retain their existing behavior.
+
+A single-bit signal declared with a packed range, such as ``logic [0:0]``,
+is a vector for VPI purposes (``vpiVector``) but has the same <msb> <lsb> as a
+scalar. The code generator marks it with a ``[`` after the range, in the
+``.var`` and ``.net`` forms::
+
+        <label> .var "name", 0 0 [;
+        <label> .net "name", 0 0 [, <symbol>;
 Older VVP runtimes do not accept declarations containing this reference.
 
 The "name" is the declared base name of the original variable, for the

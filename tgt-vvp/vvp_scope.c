@@ -425,6 +425,19 @@ static const char *local_flag_str( ivl_signal_t sig )
 }
 
 /*
+ * A signal declared with a packed range is a vector even when the range
+ * has a single element. The vvp record only carries msb and lsb, which
+ * cannot tell [0:0] from a scalar, so mark that case explicitly. Local
+ * signals are not visible to VPI and real nets have no such flag.
+ */
+static const char *vec_flag_str(ivl_signal_t sig, int msb, int lsb)
+{
+      if (ivl_signal_local(sig) || ivl_signal_data_type(sig) == IVL_VT_REAL)
+	    return "";
+      return (ivl_signal_packed_dimensions(sig) > 0 && msb == lsb)? " [" : "";
+}
+
+/*
  * This function draws a reg/int/variable in the scope. This is a very
  * simple device to draw as there are no inputs to connect so no need
  * to scan the nexus. We do have to account for the possibility that
@@ -559,9 +572,10 @@ static void draw_reg_in_scope(ivl_signal_t sig)
 
 	    ivl_enumtype_t enumtype = ivl_type_enumtype(ivl_signal_net_type(sig));
 
-	    fprintf(vvp_out, "v%p_0 .var%s %s\"%s\", %d %d",
+	    fprintf(vvp_out, "v%p_0 .var%s %s\"%s\", %d %d%s",
 		    sig, datatype_flag, local_flag,
-		    vvp_mangle_name(ivl_signal_basename(sig)), msb, lsb);
+		    vvp_mangle_name(ivl_signal_basename(sig)), msb, lsb,
+		    vec_flag_str(sig, msb, lsb));
 	    if (enumtype) fprintf(vvp_out, ", enum%p", enumtype);
 	    fprintf(vvp_out, ";%s\n",
 		    ivl_signal_local(sig)? " Local signal" : "" );
@@ -648,10 +662,11 @@ static void draw_net_in_scope(ivl_signal_t sig)
 		  if (dimensions > 0) {
 			/* If this is a word of an array, then use an
 			   array reference in place of the net name. */
-			fprintf(vvp_out, "v%p_%u .net%s%s v%p %u, %d %d, %s;"
+			fprintf(vvp_out, "v%p_%u .net%s%s v%p %u, %d %d%s, %s;"
 				" %u drivers%s\n",
 				sig, iword, vec8, datatype_flag, sig,
-				iword, msb, lsb, driver,
+				iword, msb, lsb, vec_flag_str(sig, msb, lsb),
+				driver,
 				nex_data->drivers_count,
 				strength_aware_flag?", strength-aware":"" );
 
@@ -669,11 +684,11 @@ static void draw_net_in_scope(ivl_signal_t sig)
 			/* If this is an isolated word, it uses its
 			   own name. */
 			assert(word_count == 1);
-			fprintf(vvp_out, "v%p_%u .net%s%s %s\"%s\", %d %d, %s; "
+			fprintf(vvp_out, "v%p_%u .net%s%s %s\"%s\", %d %d%s, %s; "
 				" %u drivers%s\n",
 				sig, iword, vec8, datatype_flag, local_flag,
 				vvp_mangle_name(ivl_signal_basename(sig)),
-				msb, lsb, driver,
+				msb, lsb, vec_flag_str(sig, msb, lsb), driver,
 				nex_data->drivers_count,
 				strength_aware_flag?", strength-aware":"" );
 		  }
@@ -710,9 +725,10 @@ static void draw_net_in_scope(ivl_signal_t sig)
 				      swapped ? last : first );
 			}
 
-			fprintf(vvp_out, "v%p_%u .net%s v%p %u, %d %d, "
+			fprintf(vvp_out, "v%p_%u .net%s v%p %u, %d %d%s, "
 			        "v%p_%u; Alias to %s[%u]\n", sig, iword,
 			        datatype_flag, sig, iword, msb, lsb,
+			        vec_flag_str(sig, msb, lsb),
 			        nex_data->net, nex_data->net_word,
 			        ivl_signal_basename(nex_data->net),
 				nex_data->net_word);
@@ -730,11 +746,11 @@ static void draw_net_in_scope(ivl_signal_t sig)
 		  if (strength_aware_flag)
 			vec8 = "8";
 
-		  fprintf(vvp_out, "v%p_%u .net%s%s %s\"%s\", %d %d, %s; "
+		  fprintf(vvp_out, "v%p_%u .net%s%s %s\"%s\", %d %d%s, %s; "
 				" alias, %u drivers%s\n",
 				sig, iword, vec8, datatype_flag, local_flag,
 				vvp_mangle_name(ivl_signal_basename(sig)),
-				msb, lsb, driver,
+				msb, lsb, vec_flag_str(sig, msb, lsb), driver,
 				nex_data->drivers_count,
 				strength_aware_flag?", strength-aware":"");
 	    }

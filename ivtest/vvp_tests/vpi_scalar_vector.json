@@ -1,0 +1,6 @@
+{
+    "type"          : "normal",
+    "source"        : "vpi_scalar_vector.v",
+    "iverilog-args" : [ "-g2005-sv" ],
+    "vpi-sources"   : [ "vpi/scalar_vector.c" ]
+}

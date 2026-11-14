@@ -388,6 +388,7 @@ struct __vpiSignal : public __vpiHandle {
 	/* Flags */
       unsigned signed_flag  : 1;
       unsigned is_netarray  : 1; // This is word of a net array
+      unsigned vec_flag     : 1; // Declared with a packed range, so a vector
 	/* The represented value is here. */
       vvp_net_t*node;
 
@@ -703,6 +704,7 @@ struct __vpiRealVar : public __vpiHandle {
             vpiHandle index;
       } id;
       unsigned is_netarray  : 1; // This is word of a net array
+      unsigned vec_flag     : 1; // Declared with a packed range, so a vector
       unsigned is_wire      : 1; // This is a wire, not a variable
       vvp_net_t*net;
 };
