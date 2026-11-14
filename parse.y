@@ -3518,6 +3518,17 @@ data_type_or_parameter_id_dim
 	tmp = pform_make_parray_type(@3, tmp, $3);
 	set_type_id_range($$, tmp, $4, @4, $5);
       }
+  | class_scope IDENTIFIER dimensions_opt IDENTIFIER dimensions_opt
+      { auto tmp = pform_new_scoped_type_identifier(@2, $1, $2);
+	tmp = pform_make_parray_type(@3, tmp, $3);
+	set_type_id_range($$, tmp, $4, @4, $5);
+      }
+  | class_scope IDENTIFIER parameter_value_assignment dimensions_opt
+    IDENTIFIER dimensions_opt
+      { auto tmp = pform_new_scoped_type_identifier(@2, $1, $2, $3);
+	tmp = pform_make_parray_type(@4, tmp, $4);
+	set_type_id_range($$, tmp, $5, @5, $6);
+      }
   ;
 
   // Function name in a function_declaration. Besides the plain form this also

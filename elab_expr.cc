@@ -6178,6 +6178,15 @@ bool PEIdent::find_type_(Design *des, NetScope *scope,
 	    && search_results.type_def;
 }
 
+bool PEIdent::names_class_declaration(Design *des, NetScope *scope) const
+{
+      symbol_search_results search_results;
+      if (!find_type_(des, scope, search_results, true))
+	    return false;
+      return dynamic_cast<const class_type_t*>(
+		  search_results.type_def->get_data_type()) != nullptr;
+}
+
 bool PEIdent::test_type(Design *des, NetScope *scope)
 {
       if (type_lookup_.valid && type_lookup_.lookup_scope == scope)

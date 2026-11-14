@@ -19,6 +19,9 @@ module test;
   C#(.T(shortint))::elem_t s;
   C::elem_t i;
 
+  localparam C#(8, logic [3:0])::elem_t LP = 5;
+  parameter C#(.T(shortint))::elem_t PP = 300;
+
   logic [C#(6)::N-1:0] vec;
   C#(8) d = new;
   bit failed = 0;
@@ -27,6 +30,7 @@ module test;
     if (A != 8 || B != 4 || D != 16 || E != 8) failed = 1;
     if ($bits(v4) != 4 || $bits(s) != 16 || $bits(i) != 32) failed = 1;
     if ($bits(vec) != 6) failed = 1;
+    if (LP != 5 || PP != 300 || $bits(PP) != 16) failed = 1;
 
     if (C#(8)::count != 5) failed = 1;
     // Each specialization has its own static.

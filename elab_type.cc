@@ -18,7 +18,6 @@
  */
 
 # include  "PExpr.h"
-# include  "PClass.h"
 # include  "PScope.h"
 # include  "pform_types.h"
 # include  "netlist.h"
@@ -443,8 +442,7 @@ ivl_type_t type_identifier_t::elaborate_type_raw(Design *des,
 
 	      // A typedef name is not a class name, so it does not take
 	      // a parameter value assignment: typedef C#(8) c8; c8#(4).
-	    const PClass*pclass = class_type->pclass();
-	    if (pclass && pclass->pscope_name() != identifier_->path().back().name) {
+	    if (!identifier_->names_class_declaration(des, scope)) {
 		  cerr << get_fileline() << ": error: "
 		       << "`" << identifier_->path().back().name << "` is a "
 		       << "type name, not a class, so it can not have a "

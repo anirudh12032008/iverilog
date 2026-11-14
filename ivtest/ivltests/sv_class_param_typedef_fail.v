@@ -8,11 +8,20 @@ endclass
 typedef C #(8) c8_t;
 typedef C c_t;
 
+package p;
+  class D #(int N = 4);
+  endclass
+endpackage
+
+// A typedef named like a class is still a typedef.
+typedef p::D #(5) D;
+
 module test;
 
   c8_t a;
   c8_t #(4) b;
   c_t #(2) c;
+  D #(7) d;
 
   initial begin
     $display("FAILED");
