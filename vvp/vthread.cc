@@ -4319,15 +4319,10 @@ bool of_LOAD_DAR_VEC4(vthread_t thr, vvp_code_t cp)
       return load_dar<vvp_vector4_t>(thr, cp);
 }
 
-/*
- * %load/prop/dar/vec4 <pid>, <wid>;
- *   Indexed read of queue/dynamic-array class property; object on stack,
- *   index in words[3] (same as %load/dar/vec4).
- */
-bool of_LOAD_PROP_DAR_VEC4(vthread_t thr, vvp_code_t cp)
+template <typename ELEM>
+static bool load_prop_dar(vthread_t thr, vvp_code_t cp, unsigned wid)
 {
       size_t pid = cp->number;
-      unsigned wid = cp->bit_idx[0];
       int64_t adr = thr->words[3].w_int;
 
       vvp_object_t& top = thr->peek_object();
@@ -4338,15 +4333,36 @@ bool of_LOAD_PROP_DAR_VEC4(vthread_t thr, vvp_code_t cp)
       cobj->get_object(pid, pobj, 0);
       vvp_darray*darray = pobj.peek<vvp_darray>();
 
-      vvp_vector4_t word;
-      if (darray && (adr >= 0) && (thr->flags[4] == BIT4_0)) {
+      ELEM word;
+      if (darray && (adr >= 0) && (thr->flags[4] == BIT4_0))
 	    darray->get_word(adr, word);
-      } else {
+      else
 	    dq_default(word, wid);
-      }
 
-      thr->push_vec4(word);
+      vthread_push(thr, word);
       return true;
+}
+
+/*
+ * %load/prop/dar/r <pid>
+ * %load/prop/dar/str <pid>
+ * %load/prop/dar/vec4 <pid>, <wid>;
+ *   Indexed read of queue/dynamic-array class property; object on stack,
+ *   index in words[3] (same as %load/dar/vec4).
+ */
+bool of_LOAD_PROP_DAR_R(vthread_t thr, vvp_code_t cp)
+{
+      return load_prop_dar<double>(thr, cp, 0);
+}
+
+bool of_LOAD_PROP_DAR_STR(vthread_t thr, vvp_code_t cp)
+{
+      return load_prop_dar<string>(thr, cp, 0);
+}
+
+bool of_LOAD_PROP_DAR_VEC4(vthread_t thr, vvp_code_t cp)
+{
+      return load_prop_dar<vvp_vector4_t>(thr, cp, cp->bit_idx[0]);
 }
 
 /*
@@ -6252,21 +6268,9 @@ inline static void dar_pop_value(vthread_t thr, vvp_vector4_t&value)
 }
 
 template <typename ELEM>
-static bool store_dar(vthread_t thr, vvp_code_t cp)
+static void store_dar_word(vthread_t thr, vvp_darray*darray, ELEM&value)
 {
       int64_t adr = thr->words[3].w_int;
-      ELEM value;
-	// FIXME: Can we get the size of the underlying array element
-	//        and then use the normal pop_value?
-      dar_pop_value(thr, value);
-
-      vvp_net_t*net = cp->net;
-      assert(net);
-
-      vvp_fun_signal_object*obj = dynamic_cast<vvp_fun_signal_object*> (net->fun);
-      assert(obj);
-
-      vvp_darray*darray = obj->get_object().peek<vvp_darray>();
 
       if (adr < 0)
 	    cerr << thr->get_fileline()
@@ -6282,7 +6286,41 @@ static bool store_dar(vthread_t thr, vvp_code_t cp)
 	    cerr << thr->get_fileline()
 	         << "Warning: cannot write to an undefined " << get_darray_type(value)
 	         << "." << endl;
+}
 
+template <typename ELEM>
+static bool store_dar(vthread_t thr, vvp_code_t cp)
+{
+      ELEM value;
+	// FIXME: Can we get the size of the underlying array element
+	//        and then use the normal pop_value?
+      dar_pop_value(thr, value);
+
+      vvp_net_t*net = cp->net;
+      assert(net);
+
+      vvp_fun_signal_object*obj = dynamic_cast<vvp_fun_signal_object*> (net->fun);
+      assert(obj);
+
+      store_dar_word(thr, obj->get_object().peek<vvp_darray>(), value);
+      return true;
+}
+
+template <typename ELEM>
+static bool store_prop_dar(vthread_t thr, vvp_code_t cp)
+{
+      size_t pid = cp->number;
+      ELEM value;
+      dar_pop_value(thr, value);
+
+      vvp_object_t& top = thr->peek_object();
+      vvp_cobject*cobj = top.peek<vvp_cobject>();
+      assert(cobj);
+
+      vvp_object_t pobj;
+      cobj->get_object(pid, pobj, 0);
+
+      store_dar_word(thr, pobj.peek<vvp_darray>(), value);
       return true;
 }
 
@@ -6308,6 +6346,28 @@ bool of_STORE_DAR_STR(vthread_t thr, vvp_code_t cp)
 bool of_STORE_DAR_VEC4(vthread_t thr, vvp_code_t cp)
 {
       return store_dar<vvp_vector4_t>(thr, cp);
+}
+
+/*
+ * %store/prop/dar/r <pid>
+ * %store/prop/dar/str <pid>
+ * %store/prop/dar/vec4 <pid>
+ *   Indexed write of a queue/dynamic-array class property; object on
+ *   the object stack, index in words[3] (same as %store/dar/vec4).
+ */
+bool of_STORE_PROP_DAR_R(vthread_t thr, vvp_code_t cp)
+{
+      return store_prop_dar<double>(thr, cp);
+}
+
+bool of_STORE_PROP_DAR_STR(vthread_t thr, vvp_code_t cp)
+{
+      return store_prop_dar<string>(thr, cp);
+}
+
+bool of_STORE_PROP_DAR_VEC4(vthread_t thr, vvp_code_t cp)
+{
+      return store_prop_dar<vvp_vector4_t>(thr, cp);
 }
 
 bool of_STORE_OBJ(vthread_t thr, vvp_code_t cp)
@@ -7271,11 +7331,11 @@ bool of_PROP_QUEUE_SIZE(vthread_t thr, vvp_code_t cp)
 
       vvp_object_t qobj;
       cobj->get_object(pid, qobj, 0);
-      vvp_queue_vec4* qsrc = 0;
-      vvp_darray* dsrc = 0;
-      get_queue_or_darray_vec4_from_object(qobj, qsrc, dsrc);
+	/* Real and string queues are not vvp_queue_vec4, so use the
+	   common vvp_darray base class to get the size. */
+      vvp_darray* darray = qobj.peek<vvp_darray>();
 
-      size_t sz = qsrc ? qsrc->get_size() : (dsrc ? dsrc->get_size() : 0);
+      size_t sz = darray ? darray->get_size() : 0;
 
       vvp_vector4_t val(32, BIT4_0);
       unsigned long ul = sz;

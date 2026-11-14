@@ -349,6 +349,13 @@ extern NetEConst*make_const_val(unsigned long val);
 extern NetEConst*make_const_val_s(long val);
 
 /*
+ * Make the expression for the index of the last element, "[$]", of the
+ * queue property pidx of the class object sig.
+ */
+extern NetExpr*make_property_last_index(const LineInfo*li, NetNet*sig,
+					size_t pidx);
+
+/*
  * Make a const net.
  */
 extern NetNet* make_const_0(Design*des, NetScope*scope, unsigned long wid);

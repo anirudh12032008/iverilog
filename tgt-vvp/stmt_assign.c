@@ -1308,6 +1308,41 @@ static int show_stmt_assign_sig_cobject(ivl_statement_t net)
 		  fprintf(vvp_out, "    %%store/prop/str %d;\n", prop_idx);
 		  fprintf(vvp_out, "    %%pop/obj 1, 0;\n");
 
+	    } else if ((ivl_type_base(prop_type) == IVL_VT_DARRAY ||
+	                ivl_type_base(prop_type) == IVL_VT_QUEUE) &&
+	               ivl_lval_idx(lval)) {
+
+		    /* Assignment to an element of a queue/darray property. */
+		  ivl_type_t element_type = ivl_type_element(prop_type);
+		  const char*type_code;
+
+		  if (ivl_stmt_opcode(net) != 0) {
+			fprintf(stderr, "%s:%u: sorry: Assignment operators on "
+			        "elements of queue/dynamic array properties "
+			        "are not supported.\n",
+			        ivl_stmt_file(net), ivl_stmt_lineno(net));
+			errors += 1;
+		  }
+
+		  switch (ivl_type_base(element_type)) {
+		      case IVL_VT_REAL:
+			draw_eval_real(rval);
+			type_code = "r";
+			break;
+		      case IVL_VT_STRING:
+			draw_eval_string(rval);
+			type_code = "str";
+			break;
+		      default:
+			draw_eval_vec4(rval);
+			resize_vec4_wid(rval, ivl_stmt_lwidth(net));
+			type_code = "vec4";
+			break;
+		  }
+		  draw_eval_expr_into_integer(ivl_lval_idx(lval), 3);
+		  fprintf(vvp_out, "    %%store/prop/dar/%s %d;\n", type_code, prop_idx);
+		  fprintf(vvp_out, "    %%pop/obj 1, 0;\n");
+
 	    } else if (ivl_type_base(prop_type) == IVL_VT_DARRAY ||
 	               ivl_type_base(prop_type) == IVL_VT_QUEUE) {
 

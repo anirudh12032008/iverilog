@@ -27,6 +27,7 @@
 # include  "netstruct.h"
 # include  "netclass.h"
 # include  "netdarray.h"
+# include  "netqueue.h"
 # include  "netparray.h"
 # include  "netvector.h"
 # include  "netenum.h"
@@ -1193,6 +1194,7 @@ NetAssign_* PEIdent::elaborate_lval_net_class_member_(Design*des, NetScope*scope
 		 }
 	    }
 
+	    const bool is_nested = need_nested_lv;
 	    if (need_nested_lv)
 		lv = new NetAssign_(lv);
 	    lv->set_property(method_name, pidx);
@@ -1200,17 +1202,39 @@ NetAssign_* PEIdent::elaborate_lval_net_class_member_(Design*des, NetScope*scope
 
 	      // Now get the type of the property.
 	    ivl_type_t ptype = class_type->get_prop_type(pidx);
-	    const netdarray_t*mtype = dynamic_cast<const netdarray_t*> (ptype);
-	    if (mtype) {
-		  if (! member_cur.index.empty()) {
-			cerr << get_fileline() << ": sorry: "
-			     << "Array index of array properties not supported."
-			     << endl;
-			des->errors += 1;
-		  }
-	    }
 	    NetExpr *canon_index = nullptr;
-	    if (!member_cur.index.empty()) {
+	    if (dynamic_cast<const netdarray_t*> (ptype)) {
+		    // Queue or dynamic array property: optional element index.
+		  if (member_cur.index.size() > 1) {
+			cerr << get_fileline() << ": error: "
+			     << "Got " << member_cur.index.size() << " indices, "
+			     << "expecting 0 or 1 to index the property "
+			     << class_type->get_prop_name(pidx) << "." << endl;
+			des->errors++;
+		  } else if (!member_cur.index.empty()) {
+			const index_component_t&use_index = member_cur.index.back();
+			ivl_assert(*this, use_index.lsb == 0);
+			if (use_index.sel == index_component_t::SEL_BIT_LAST) {
+			      if (!dynamic_cast<const netqueue_t*>(ptype)) {
+				    cerr << get_fileline() << ": error: "
+					 << "The $ index is only allowed for queues."
+					 << endl;
+				    des->errors++;
+			      } else if (is_nested) {
+				    cerr << get_fileline() << ": sorry: "
+					 << "The $ index of a nested class property "
+					 << "is not supported." << endl;
+				    des->errors++;
+			      } else {
+				    canon_index = make_property_last_index(this,
+						 lv->sig(), pidx);
+			      }
+			} else {
+			      ivl_assert(*this, use_index.msb != 0);
+			      canon_index = elab_and_eval(des, scope, use_index.msb, -1);
+			}
+		  }
+	    } else if (!member_cur.index.empty()) {
 		  if (const netsarray_t *stype = dynamic_cast<const netsarray_t*>(ptype)) {
 			canon_index = make_canonical_index(des, scope, this,
 							   member_cur.index, stype, false);
