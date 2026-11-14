@@ -866,6 +866,8 @@ const netclass_t* netclass_t::specialize(Design*des, NetScope*scope,
 
       elaborate_scope_class_finish(des, use_class, pclass);
       def_scope->add_class(use_class);
+      if (des->parameters_evaluated)
+	    class_scope->evaluate_parameters(des);
       elaborate_scope_class_bind_super(des, use_class, pclass);
 
       des->class_specializations_elab.push_back(use_class);
