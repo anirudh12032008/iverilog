@@ -128,12 +128,6 @@ module top;
     `CHK(r.size() === 2 && r[0] === 2 && r[1] === 3);
     q = '{1, 2, 3, 4};
 
-    // $ as the lower bound.
-    r = q[$:$];
-    `CHK(r.size() === 1 && r[0] === 4);
-    r = q[$:0];
-    `CHK(r.size() === 0);
-
     // A bound that is wider than 64 bits.
     big = 100'h1 << 80;
     r = q[0:big];

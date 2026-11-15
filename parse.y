@@ -323,10 +323,9 @@ static void validate_hierarchy_index_components(
 			"Empty index is not allowed in a hierarchy identifier.");
 		  invalid = true;
 	    } else if (cur->sel == index_component_t::SEL_QUEUE_BOUND) {
-		    // In an expression this is a slice that starts at $.
-		  cur->sel = index_component_t::SEL_PART;
-		  cur->msb = new PEQueueDimension;
-		  cur->msb->set_line(*cur);
+		  index_component_error(*cur,
+			"Queue bounds are not allowed in a hierarchy identifier.");
+		  invalid = true;
 	    } else if (cur->sel == index_component_t::SEL_BIT_LAST) {
 		  index_component_requires_sv(*cur,
 					      "Last element expression ($)");
