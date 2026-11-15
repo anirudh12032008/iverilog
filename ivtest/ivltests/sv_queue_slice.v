@@ -22,6 +22,8 @@ module top;
   string s[$] = '{"a", "bb", "ccc", "dddd"};
   string sr[$];
   int init_r[$] = q[1:2];
+  int bq[$:1];
+  logic [99:0] big;
 
   function automatic int sum(int x[$]);
     sum = 0;
@@ -117,6 +119,38 @@ module top;
     `CHK(sr.size() === 2 && sr[0] == "bb" && sr[1] == "ccc");
     s = s[1:$];
     `CHK(s.size() === 3 && s[0] == "bb" && s[2] == "dddd");
+
+    // The slice is a copy.
+    q = '{1, 2, 3, 4};
+    r = q[1:2];
+    q[1] = 99;
+    q.push_back(5);
+    `CHK(r.size() === 2 && r[0] === 2 && r[1] === 3);
+    q = '{1, 2, 3, 4};
+
+    // $ as the lower bound.
+    r = q[$:$];
+    `CHK(r.size() === 1 && r[0] === 4);
+    r = q[$:0];
+    `CHK(r.size() === 0);
+
+    // A bound that is wider than 64 bits.
+    big = 100'h1 << 80;
+    r = q[0:big];
+    `CHK(r.size() === 4);
+    r = q[big:3];
+    `CHK(r.size() === 0);
+    big = -1;
+    r = q[0:$signed(big)];
+    `CHK(r.size() === 0);
+
+    // A bounded queue gets the same elements as for a whole queue.
+    bq = q[0:3];
+    `CHK(bq.size() === 2 && bq[0] === 1 && bq[1] === 2);
+
+    // Writing to q[$+1] appends.
+    q[$+1] = 5;
+    `CHK(q.size() === 5 && q[4] === 5);
 
     if (!failed)
       $display("PASSED");
