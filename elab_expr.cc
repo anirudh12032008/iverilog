@@ -3871,8 +3871,15 @@ NetExpr* PEIdent::elaborate_expr_class_field_(Design*des, NetScope*scope,
 	    } else {
 		  const index_component_t&use_index = idx_list->back();
 		  ivl_assert(*this, use_index.msb != 0);
-		  ivl_assert(*this, use_index.lsb == 0);
-		  canon_index = elab_and_eval(des, scope, use_index.msb, -1, false);
+		  if (use_index.lsb) {
+			cerr << get_fileline() << ": sorry: "
+			     << "a slice of the queue/dynamic-array property "
+			     << class_type->get_prop_name(pidx)
+			     << " is not supported." << endl;
+			des->errors++;
+		  } else {
+			canon_index = elab_and_eval(des, scope, use_index.msb, -1, false);
+		  }
 	    }
       } else if (!comp.index.empty()) {
 	    /* IEEE 1800-2023 §11.5.1: bit-select on a scalar packed property,
@@ -6550,6 +6557,88 @@ static NetExpr* build_unpacked_reduction(Design *des,
       return fun;
 }
 
+/*
+ * The queue that "$" refers to while the index of that queue is being
+ * elaborated.
+ */
+static const NetNet*dollar_queue = nullptr;
+
+namespace {
+class dollar_queue_scope {
+    public:
+      explicit dollar_queue_scope(const NetNet*net)
+      : saved_(dollar_queue) { if (net->queue_type()) dollar_queue = net; }
+      ~dollar_queue_scope() { dollar_queue = saved_; }
+    private:
+      const NetNet*saved_;
+};
+}
+
+static NetExpr* elaborate_last_index_(Design*des, const LineInfo*loc)
+{
+      if (!dollar_queue) {
+	    cerr << loc->get_fileline() << ": error: "
+		 << "'$' is only allowed in a queue index." << endl;
+	    des->errors += 1;
+	    return 0;
+      }
+      NetELast*tmp = new NetELast(const_cast<NetNet*>(dollar_queue));
+      tmp->set_line(*loc);
+      return tmp;
+}
+
+/*
+ * Q[a:b] is a new queue holding elements a through b of Q. The bounds
+ * are clamped to the queue at run time ($ in a bound is Q.size()-1).
+ */
+static NetExpr* elaborate_queue_slice(Design*des, NetScope*scope,
+				      const PEIdent*pe, NetNet*net,
+				      const index_component_t&index,
+				      ivl_type_t ntype, bool need_const)
+{
+      if (!dynamic_cast<const netdarray_t*>(ntype)) {
+	    cerr << pe->get_fileline() << ": sorry: "
+		 << "a slice of queue " << net->name()
+		 << " is only supported where a queue is expected." << endl;
+	    des->errors += 1;
+	    return 0;
+      }
+
+      NetExpr*bound[2] = { 0, 0 };
+      PExpr*bound_pe[2] = { index.msb, index.lsb };
+      for (int idx = 0 ; idx < 2 ; idx += 1) {
+	    bound[idx] = elab_and_eval(des, scope, bound_pe[idx], -1, need_const);
+	    if (!bound[idx]) {
+		  delete bound[0];
+		  return 0;
+	    }
+	    if (bound[idx]->expr_type() == IVL_VT_REAL ||
+		bound[idx]->expr_type() == IVL_VT_STRING) {
+		  cerr << pe->get_fileline() << ": error: A queue slice "
+		       << "bound cannot be a "
+		       << (bound[idx]->expr_type() == IVL_VT_REAL ? "real"
+								  : "string")
+		       << " value." << endl;
+		  des->errors += 1;
+		  delete bound[0];
+		  delete bound[1];
+		  return 0;
+	    }
+	      // The runtime reads each bound as a signed 64 bit value.
+	    bound[idx] = pad_to_width(bound[idx], 64, *pe);
+      }
+
+      NetESFunc*fun = new NetESFunc("$ivl_queue_method$slice",
+				    net->queue_type(), 3);
+      fun->set_line(*pe);
+      NetESignal*arg = new NetESignal(net);
+      arg->set_line(*net);
+      fun->parm(0, arg);
+      fun->parm(1, bound[0]);
+      fun->parm(2, bound[1]);
+      return fun;
+}
+
 static NetExpr* build_queue_method(const LineInfo &loc,
                                    symbol_search_results&sr,
                                    ivl_type_t element_type,
@@ -6616,6 +6705,7 @@ NetExpr* PEIdent::elaborate_expr(Design*des, NetScope*scope,
       }
 
       NetNet *net = sr.net;
+      dollar_queue_scope queue_scope(net);
 
       if (!sr.path_tail.empty()) {
 	    if (net->struct_type()) {
@@ -6682,6 +6772,20 @@ NetExpr* PEIdent::elaborate_expr(Design*des, NetScope*scope,
       }
 
       const name_component_t&use_comp = path_.back();
+
+      if (net->darray_type() && !use_comp.index.empty() &&
+	  use_comp.index.back().sel == index_component_t::SEL_PART) {
+	    if (net->queue_type() && net->unpacked_dimensions() == 0 &&
+		use_comp.index.size() == 1)
+		  return elaborate_queue_slice(des, scope, this, net,
+					       use_comp.index.back(), ntype,
+					       need_const);
+	    cerr << get_fileline() << ": sorry: "
+		 << "a part select of " << net->name()
+		 << " is only supported for a queue." << endl;
+	    des->errors += 1;
+	    return 0;
+      }
 
 	// When the whole net is referenced (no unpacked index), the type to
 	// compare against the context is the net's type as seen by the caller.
@@ -8259,6 +8363,14 @@ NetExpr* PEIdent::elaborate_expr_net_part_(Design*des, NetScope*scope,
 	    return 0;
       }
 
+      if (net->sig()->darray_type()) {
+	    cerr << get_fileline() << ": sorry: "
+		 << "a slice of " << net->name()
+		 << " is only supported where a queue is expected." << endl;
+	    des->errors += 1;
+	    return 0;
+      }
+
       list<long> prefix_indices;
       bool rc = calculate_packed_indices_(des, scope, net->sig(), prefix_indices);
       if (!rc)
@@ -8854,6 +8966,7 @@ NetExpr* PEIdent::elaborate_expr_net(Design*des, NetScope*scope,
 	    return elaborate_expr_net_word_(des, scope, net, found_in,
                                             expr_wid, flags);
 
+      dollar_queue_scope queue_scope(net);
       bool need_const = NEED_CONST & flags;
 
       NetESignal*node = new NetESignal(net);
@@ -9164,6 +9277,27 @@ NetExpr* PENull::elaborate_expr(Design*, NetScope*, unsigned, unsigned) const
       NetENull*tmp = new NetENull;
       tmp->set_line(*this);
       return tmp;
+}
+
+unsigned PEQueueDimension::test_width(Design*, NetScope*, width_mode_t&)
+{
+      expr_type_   = IVL_VT_BOOL;
+      expr_width_  = 32;
+      min_width_   = 32;
+      signed_flag_ = true;
+      return expr_width_;
+}
+
+NetExpr* PEQueueDimension::elaborate_expr(Design*des, NetScope*, ivl_type_t,
+					  unsigned) const
+{
+      return elaborate_last_index_(des, this);
+}
+
+NetExpr* PEQueueDimension::elaborate_expr(Design*des, NetScope*, unsigned,
+					  unsigned) const
+{
+      return elaborate_last_index_(des, this);
 }
 
 unsigned PENumber::test_width(Design*, NetScope*, width_mode_t&mode)

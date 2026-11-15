@@ -340,6 +340,15 @@ NetAssign_*PEIdent::elaborate_lval_var_(Design *des, NetScope *scope,
 
       ivl_assert(*this, member_path.empty());
 
+      if (use_sel == index_component_t::SEL_PART && reg->darray_type()) {
+	    cerr << get_fileline() << ": sorry: "
+		 << "assigning to a slice of " << reg->name()
+		 << " is not supported." << endl;
+	    des->errors += 1;
+	    delete lv;
+	    return nullptr;
+      }
+
       if (use_sel == index_component_t::SEL_PART) {
 	    elaborate_lval_net_part_(des, scope, lv, is_force);
 	    return lv;

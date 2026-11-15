@@ -5568,6 +5568,51 @@ bool of_QINSERT_V(vthread_t thr, vvp_code_t cp)
 }
 
 /*
+ * %qslice
+ *
+ * Pop the high and low bounds (vec4, signed) and a queue object, and
+ * push a new queue holding the elements from low to high, inclusive.
+ * The bounds are clamped to the queue. If either bound is X/Z, or the
+ * low bound is above the high bound, the new queue is empty.
+ */
+bool of_QSLICE(vthread_t thr, vvp_code_t)
+{
+      int64_t hi = 0, lo = 0;
+      bool defined = vector4_to_value(thr->peek_vec4(0), hi, true);
+      defined &= vector4_to_value(thr->peek_vec4(1), lo, true);
+      thr->pop_vec4(2);
+
+      vvp_object_t src;
+      thr->pop_object(src);
+
+      vvp_queue*queue = src.peek<vvp_queue>();
+      if (!queue) {
+	      // A queue that was never written has no object to slice.
+	    thr->push_object(src);
+	    return true;
+      }
+
+      vvp_object_t dup = src.duplicate();
+      vvp_queue*res = dup.peek<vvp_queue>();
+      int64_t size = res->get_size();
+      if (!defined) {
+	    res->erase_tail(0);
+      } else {
+	    if (lo < 0) lo = 0;
+	    if (hi >= size) hi = size - 1;
+	    if (lo > hi) {
+		  res->erase_tail(0);
+	    } else {
+		  res->erase_tail(hi + 1);
+		  for (int64_t idx = 0 ; idx < lo ; idx += 1)
+			res->pop_front();
+	    }
+      }
+      thr->push_object(dup);
+      return true;
+}
+
+/*
  * Helper functions used in the queue pop templates
  */
 inline void push_value(vthread_t thr, double value, unsigned)
