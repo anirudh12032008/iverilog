@@ -6557,32 +6557,18 @@ static NetExpr* build_unpacked_reduction(Design *des,
       return fun;
 }
 
-/*
- * The queue that "$" refers to while the index of that queue is being
- * elaborated.
- */
-static const NetNet*dollar_queue = nullptr;
-
-namespace {
-class dollar_queue_scope {
-    public:
-      explicit dollar_queue_scope(const NetNet*net)
-      : saved_(dollar_queue) { if (net->queue_type()) dollar_queue = net; }
-      ~dollar_queue_scope() { dollar_queue = saved_; }
-    private:
-      const NetNet*saved_;
-};
-}
-
 static NetExpr* elaborate_last_index_(Design*des, const LineInfo*loc)
 {
-      if (!dollar_queue) {
+      if (!dollar_queue_scope::current()) {
 	    cerr << loc->get_fileline() << ": error: "
 		 << "'$' is only allowed in a queue index." << endl;
 	    des->errors += 1;
-	    return 0;
+	      // Keep the callers going with a placeholder value.
+	    NetEConst*bad = new NetEConst(verinum(verinum::Vx, 32, true));
+	    bad->set_line(*loc);
+	    return bad;
       }
-      NetELast*tmp = new NetELast(const_cast<NetNet*>(dollar_queue));
+      NetELast*tmp = new NetELast(const_cast<NetNet*>(dollar_queue_scope::current()));
       tmp->set_line(*loc);
       return tmp;
 }
@@ -8962,11 +8948,12 @@ NetExpr* PEIdent::elaborate_expr_net(Design*des, NetScope*scope,
 		 << endl;
       }
 
+      dollar_queue_scope queue_scope(net);
+
       if (net->unpacked_dimensions() > 0)
 	    return elaborate_expr_net_word_(des, scope, net, found_in,
                                             expr_wid, flags);
 
-      dollar_queue_scope queue_scope(net);
       bool need_const = NEED_CONST & flags;
 
       NetESignal*node = new NetESignal(net);
