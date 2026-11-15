@@ -6610,8 +6610,11 @@ static NetExpr* elaborate_queue_slice(Design*des, NetScope*scope,
 		  delete bound[1];
 		  return 0;
 	    }
-	      // The runtime reads each bound as a signed 64 bit value.
-	    bound[idx] = pad_to_width(bound[idx], 64, *pe);
+	      // The runtime reads each bound as a signed value, and
+	      // saturates it to 64 bits if it is wider.
+	    bound[idx] = pad_to_width(bound[idx],
+				      std::max(66u, bound[idx]->expr_width() + 1),
+				      bound[idx]->has_sign(), *pe);
       }
 
       NetESFunc*fun = new NetESFunc("$ivl_queue_method$slice",
@@ -6760,15 +6763,19 @@ NetExpr* PEIdent::elaborate_expr(Design*des, NetScope*scope,
       const name_component_t&use_comp = path_.back();
 
       if (net->darray_type() && !use_comp.index.empty() &&
-	  use_comp.index.back().sel == index_component_t::SEL_PART) {
-	    if (net->queue_type() && net->unpacked_dimensions() == 0 &&
+	  (use_comp.index.back().sel == index_component_t::SEL_PART ||
+	   use_comp.index.back().sel == index_component_t::SEL_IDX_UP ||
+	   use_comp.index.back().sel == index_component_t::SEL_IDX_DO)) {
+	    if (use_comp.index.back().sel == index_component_t::SEL_PART &&
+		net->queue_type() && net->unpacked_dimensions() == 0 &&
 		use_comp.index.size() == 1)
 		  return elaborate_queue_slice(des, scope, this, net,
 					       use_comp.index.back(), ntype,
 					       need_const);
 	    cerr << get_fileline() << ": sorry: "
-		 << "a part select of " << net->name()
-		 << " is only supported for a queue." << endl;
+		 << "this part select of " << net->name()
+		 << " is not supported (only a [a:b] slice of a queue is)."
+		 << endl;
 	    des->errors += 1;
 	    return 0;
       }
@@ -8493,6 +8500,14 @@ NetExpr* PEIdent::elaborate_expr_net_idx_up_do_(Design*des, NetScope*scope,
 					     bool up,
                                              bool need_const) const
 {
+      if (net->sig()->darray_type()) {
+	    cerr << get_fileline() << ": sorry: "
+		 << "an indexed part select of " << net->name()
+		 << " is not supported." << endl;
+	    des->errors += 1;
+	    return 0;
+      }
+
       if (net->sig()->data_type() == IVL_VT_STRING) {
 	    cerr << get_fileline() << ": error: Cannot take the index part "
 	            "select of a string ('" << net->name() << "')." << endl;

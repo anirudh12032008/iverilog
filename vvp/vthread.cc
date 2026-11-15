@@ -5575,11 +5575,34 @@ bool of_QINSERT_V(vthread_t thr, vvp_code_t cp)
  * The bounds are clamped to the queue. If either bound is X/Z, or the
  * low bound is above the high bound, the new queue is empty.
  */
+static bool qslice_bound(const vvp_vector4_t&val, int64_t&res)
+{
+      unsigned wid = val.size();
+      if (wid <= 64) return vector4_to_value(val, res, true);
+
+	// Saturate a value that does not fit in 64 bits. The top bit is
+	// the sign.
+      bool neg = false;
+      bool fits = true;
+      for (unsigned idx = 0 ; idx < wid ; idx += 1) {
+	    vvp_bit4_t bit = val.value(idx);
+	    if (bit == BIT4_X || bit == BIT4_Z) return false;
+	    if (idx == wid-1) neg = (bit == BIT4_1);
+      }
+      for (unsigned idx = 63 ; idx < wid ; idx += 1)
+	    if ((val.value(idx) == BIT4_1) != neg) fits = false;
+      if (!fits) {
+	    res = neg ? INT64_MIN : INT64_MAX;
+	    return true;
+      }
+      return vector4_to_value(vvp_vector4_t(val, 0, 64), res, true);
+}
+
 bool of_QSLICE(vthread_t thr, vvp_code_t)
 {
       int64_t hi = 0, lo = 0;
-      bool defined = vector4_to_value(thr->peek_vec4(0), hi, true);
-      defined &= vector4_to_value(thr->peek_vec4(1), lo, true);
+      bool defined = qslice_bound(thr->peek_vec4(0), hi);
+      defined &= qslice_bound(thr->peek_vec4(1), lo);
       thr->pop_vec4(2);
 
       vvp_object_t src;
