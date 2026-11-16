@@ -4821,6 +4821,23 @@ NetProc* PCallTask::elaborate_void_function_(Design*des, NetScope*scope,
       return elaborate_build_call_(des, scope, dscope, 0);
 }
 
+/*
+ * Return true if evaluating the l-value reads a variable, i.e. it has a
+ * non-constant index or is a class property.
+ */
+static bool lval_reads_vars(const NetAssign_*lv)
+{
+      for (; lv; lv = lv->more) {
+	    if (lv->nest() || lv->get_property_idx() >= 0)
+		  return true;
+	    if (lv->word() && !dynamic_cast<const NetEConst*>(lv->word()))
+		  return true;
+	    if (lv->get_base() && !dynamic_cast<const NetEConst*>(lv->get_base()))
+		  return true;
+      }
+      return false;
+}
+
 NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 					  NetScope*task, NetExpr*use_this,
 					  bool nonvirtual) const
@@ -5043,6 +5060,8 @@ NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 	   expression that can be a target to a procedural
 	   assignment, including a memory word. */
 
+      bool defer_copy_out = false;
+      list<NetAssign*> copy_out;
       for (unsigned int idx = off; idx < parm_count; idx++) {
 
 	    size_t parms_idx = idx - off;
@@ -5081,7 +5100,26 @@ NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 	    if (lv == 0)
 		  continue;
 
-	    NetExpr*rv = new NetESignal(port);
+	      /* While the callee's context is the read context, the
+		 caller's automatic variables cannot be read. If the
+		 l-value needs any, copy the port to a temporary now and
+		 do the copy-out to the l-value after the context is
+		 freed. Once one copy-out is deferred, so are the later
+		 ones to keep the order of the l-value evaluations. */
+	    NetNet*src = port;
+	    if (task->is_auto() && scope->is_auto()
+		&& (defer_copy_out || lval_reads_vars(lv))) {
+		  defer_copy_out = true;
+		  src = new NetNet(scope, scope->local_symbol(), NetNet::REG,
+				   port->net_type());
+		  src->set_line(*this);
+		  NetAssign*tmp_ass = new NetAssign(new NetAssign_(src),
+						    new NetESignal(port));
+		  tmp_ass->set_line(*this);
+		  block->append(tmp_ass);
+	    }
+
+	    NetExpr*rv = new NetESignal(src);
 
 	      /* Handle any implicit cast. */
 	    const auto lval_info = get_lval_info(lv);
@@ -5118,7 +5156,10 @@ NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 	    NetAssign*ass = new NetAssign(lv, rv);
 	    ass->set_line(*this);
 
-	    block->append(ass);
+	    if (src == port)
+		  block->append(ass);
+	    else
+		  copy_out.push_back(ass);
       }
 
         /* If this is an automatic task, generate a statement to free
@@ -5128,6 +5169,9 @@ NetProc* PCallTask::elaborate_build_call_(Design*des, NetScope*scope,
 	    fp->set_line(*this);
 	    block->append(fp);
       }
+
+      for (NetAssign*ass : copy_out)
+	    block->append(ass);
 
       return block;
 }
