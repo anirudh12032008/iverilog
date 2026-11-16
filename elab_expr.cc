@@ -1169,7 +1169,6 @@ NetExpr* PEAssignPattern::elaborate_expr_packed_(Design *des, NetScope *scope,
 	         << get_fileline() << ":      : Found "
 		 << parms.size() << " element(s)." << endl;
 	    des->errors++;
-	    return nullptr;
       }
 
       width /= dims[cur_dim].width();
@@ -1248,7 +1247,13 @@ NetExpr* PEAssignPattern::elaborate_expr(Design*des, NetScope*scope,
 		  des->errors++;
 		  return nullptr;
 	    }
+	    unsigned errors = des->errors;
 	    auto res = elaborate_expr(des, scope, type, flags);
+	      // Report a bad pattern once, not again for the incomplete result.
+	    if (res && des->errors != errors) {
+		  delete res;
+		  return nullptr;
+	    }
 	    if (res && res->expr_width() < expr_wid)
 		  res = pad_to_width(res, expr_wid, type->get_signed(), *this);
 	    return res;
