@@ -543,7 +543,7 @@ void PETernary::dump(ostream&out) const
 
 void PETypename::dump(ostream&fd) const
 {
-      data_type_->pform_dump(fd, 0);
+      data_type_->debug_dump(fd);
 }
 
 void PEUnary::dump(ostream&out) const

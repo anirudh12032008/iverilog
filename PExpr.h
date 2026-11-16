@@ -818,6 +818,8 @@ class PETypename : public PExpr {
       explicit PETypename(data_type_t*data_type);
       ~PETypename() override;
 
+      const data_type_t *get_type() const { return data_type_; }
+
       virtual void dump(std::ostream&) const override;
       virtual unsigned test_width(Design*des, NetScope*scope,
 				  width_mode_t&mode) override;

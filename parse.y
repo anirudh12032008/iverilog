@@ -5483,11 +5483,19 @@ expr_primary
      expression, as it does for a cast. */
   | expr_primary_or_typename assignment_pattern
       { auto tmp = static_cast<PEAssignPattern*>($2);
-	if (pform_requires_sv(@1, "Typed assignment pattern")) {
-	      tmp->set_type($1);
-	} else {
+	auto tn = dynamic_cast<PETypename*>($1);
+	if (!pform_requires_sv(@1, "Typed assignment pattern")) {
 	      delete $1;
+	} else if (tn && !dynamic_cast<const atom_type_t*>(tn->get_type()) &&
+		   !dynamic_cast<const type_identifier_t*>(tn->get_type())) {
+	      yyerror(@1, "error: Only a type name, an integer atom type, a type "
+			  "parameter or a type reference is allowed as the type "
+			  "of an assignment pattern.");
+	      delete $1;
+	} else {
+	      tmp->set_type($1);
 	}
+	FILE_NAME(tmp, @1);
 	$$ = tmp;
       }
 
