@@ -5478,6 +5478,19 @@ expr_primary
   | assignment_pattern
       { $$ = $1; }
 
+  /* A typed assignment pattern, IEEE1800-2017 10.9: the type is a type
+     name or a type parameter, which the elaborator tells apart from an
+     expression, as it does for a cast. */
+  | expr_primary_or_typename assignment_pattern
+      { auto tmp = static_cast<PEAssignPattern*>($2);
+	if (pform_requires_sv(@1, "Typed assignment pattern")) {
+	      tmp->set_type($1);
+	} else {
+	      delete $1;
+	}
+	$$ = tmp;
+      }
+
   /* SystemVerilog supports streaming concatenation */
   | streaming_concatenation
       { $$ = $1; }

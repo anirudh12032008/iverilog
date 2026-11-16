@@ -401,6 +401,8 @@ void PExpr::dump(ostream&out) const
 
 void PEAssignPattern::dump(ostream&out) const
 {
+      if (type_)
+	    out << *type_;
       if (is_keyed_()) {
 	    out << "'{";
 	    const char*sep = "";
