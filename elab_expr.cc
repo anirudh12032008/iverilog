@@ -6764,6 +6764,15 @@ static NetExpr* build_unpacked_reduction(Design *des,
 
 static NetExpr* elaborate_last_index_(Design*des, const LineInfo*loc)
 {
+      if (dollar_queue_scope::current_property() == dollar_queue_scope::NESTED) {
+	    cerr << loc->get_fileline() << ": sorry: "
+		 << "The $ index of a nested class property "
+		 << "is not supported." << endl;
+	    des->errors += 1;
+	    NetEConst*bad = new NetEConst(verinum(verinum::Vx, 32, true));
+	    bad->set_line(*loc);
+	    return bad;
+      }
       if (!dollar_queue_scope::current()) {
 	    cerr << loc->get_fileline() << ": error: "
 		 << "'$' is only allowed in a queue index." << endl;

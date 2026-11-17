@@ -1223,6 +1223,7 @@ NetAssign_* PEIdent::elaborate_lval_net_class_member_(Design*des, NetScope*scope
 			     << "expecting 0 or 1 to index the property "
 			     << class_type->get_prop_name(pidx) << "." << endl;
 			des->errors++;
+			return 0;
 		  } else if (!member_cur.index.empty()) {
 			const index_component_t&use_index = member_cur.index.back();
 			if (use_index.sel != index_component_t::SEL_BIT &&
@@ -1231,17 +1232,20 @@ NetAssign_* PEIdent::elaborate_lval_net_class_member_(Design*des, NetScope*scope
 				   << "A part select of a queue/dynamic array "
 				   << "property is not supported." << endl;
 			      des->errors++;
+			      return 0;
 			} else if (use_index.sel == index_component_t::SEL_BIT_LAST) {
 			      if (!dynamic_cast<const netqueue_t*>(ptype)) {
 				    cerr << get_fileline() << ": error: "
 					 << "The $ index is only allowed for queues."
 					 << endl;
 				    des->errors++;
+				    return 0;
 			      } else if (is_nested) {
 				    cerr << get_fileline() << ": sorry: "
 					 << "The $ index of a nested class property "
 					 << "is not supported." << endl;
 				    des->errors++;
+				    return 0;
 			      } else {
 				    canon_index = make_property_last_index(this,
 						 lv->sig(), pidx);
@@ -1249,10 +1253,11 @@ NetAssign_* PEIdent::elaborate_lval_net_class_member_(Design*des, NetScope*scope
 			} else {
 			      ivl_assert(*this, use_index.msb != 0);
 				// "$" in the index is the last element of
-				// this queue (not for a nested property,
-				// which has no net of its own).
+				// this queue. A nested property has no net
+				// of its own, so "$" is a sorry there.
 			      dollar_queue_scope queue_scope(is_nested ? nullptr : lv->sig(),
-							     pidx, !is_nested &&
+							     is_nested ? dollar_queue_scope::NESTED : pidx,
+							     !is_nested &&
 							     dynamic_cast<const netqueue_t*>(ptype));
 			      canon_index = elab_and_eval(des, scope, use_index.msb, -1);
 			}

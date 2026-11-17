@@ -397,6 +397,8 @@ extern lval_info_t get_lval_info(const class NetAssign_*first);
  */
 class dollar_queue_scope {
     public:
+	// The pidx of a property of a nested class object.
+      static const int NESTED = -2;
       explicit dollar_queue_scope(const NetNet*net)
       : saved_(queue_), saved_pidx_(pidx_)
       { queue_ = net->queue_type() ? net : nullptr; pidx_ = -1; }

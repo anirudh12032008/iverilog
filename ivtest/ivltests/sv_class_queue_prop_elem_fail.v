@@ -10,7 +10,12 @@ module test;
     string s[$];
   endclass
 
+  class N;
+    C b;
+  endclass
+
   C c;
+  N n;
   int i;
 
   initial begin
@@ -25,6 +30,9 @@ module test;
     c.q[0] += 1;
     c.d[$] = 1;
     c.d[$+1] = 1;
+    c.q[0][1] = 1;
+    n.b.q[$] = 1;
+    n.b.q[$+1] = 1;
     i = c.d[$-1];
   end
 
