@@ -1103,9 +1103,9 @@ static int show_stmt_assign_darray(ivl_statement_t net)
 	    assert(ivl_stmt_opcode(net) == 0);
 
 	    // There is no l-value mux, and the r-value expression is
-	    // a "signal" or class property expression. Store a duplicate into the lvalue
-	    // By using the %dup/obj. Remember to pop the rvalue that
-	    // is no longer needed.
+	    // a "signal" or class property expression. Store a duplicate
+	    // into the lvalue by using the %dup/obj. Remember to pop the
+	    // rvalue that is no longer needed.
 	    errors += draw_eval_object(rval);
 	    fprintf(vvp_out, "    %%dup/obj;\n");
 	    fprintf(vvp_out, "    %%store/obj v%p_0; %s:%u: %s = <signal>\n",

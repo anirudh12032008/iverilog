@@ -397,6 +397,8 @@ void property_object::copy(char*dst, char*src)
       for (size_t idx = 0 ; idx < array_size_ ; idx += 1) {
 	      // Queues and dynamic arrays have value semantics, so the copy
 	      // gets its own array. Class handles are copied as handles.
+	      // (A dynamic array of handles has no duplicate() yet, but
+	      // cannot be a property today.)
 	    if (src_obj[idx].peek<vvp_darray>())
 		  dst_obj[idx] = src_obj[idx].duplicate();
 	    else
