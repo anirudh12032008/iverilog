@@ -24,6 +24,8 @@ module test;
     i = c.q[1:0];
     c.q[0] += 1;
     c.d[$] = 1;
+    c.d[$+1] = 1;
+    i = c.d[$-1];
   end
 
 endmodule

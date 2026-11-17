@@ -285,6 +285,7 @@ struct vthread_s {
       struct vthread_s*wait_next;
 	/* These are used to access automatically allocated items. */
       vvp_context_t wt_context, rd_context;
+      vector<pair<__vpiScope*, vvp_context_t> > owned_contexts;
 	/* These are used to pass non-blocking event control information. */
       vvp_net_t*event;
       uint64_t ecount;
@@ -298,6 +299,7 @@ struct vthread_s {
 
       inline void cleanup()
       {
+	    assert(owned_contexts.empty());
 	    if (i_was_disabled) {
 		  stack_vec4_.clear();
 		  stack_real_.clear();
@@ -753,9 +755,26 @@ static void vthread_free_context(vvp_context_t context, __vpiScope*scope)
       scope->free_contexts = context;
 }
 
+static void vthread_release_context(vthread_t thr)
+{
+      assert(!thr->owned_contexts.empty());
+      const auto allocation = thr->owned_contexts.back();
+      vvp_context_t context = allocation.second;
+      if (thr->wt_context == context)
+	    thr->wt_context = vvp_get_stacked_context(context);
+      if (thr->rd_context == context)
+	    thr->rd_context = vvp_get_stacked_context(context);
+      vthread_free_context(context, allocation.first);
+      thr->owned_contexts.pop_back();
+}
+
 #ifdef CHECK_WITH_VALGRIND
 void contexts_delete(class __vpiScope*scope)
 {
+      // Simulation can finish while an automatic scope is still active.
+      while (scope->live_contexts)
+	    vthread_free_context(scope->live_contexts, scope);
+
       vvp_context_t context = scope->free_contexts;
 
       while (context) {
@@ -1044,6 +1063,7 @@ bool of_ALLOC(vthread_t thr, vvp_code_t cp)
 {
         /* Allocate a context. */
       vvp_context_t child_context = vthread_alloc_context(cp->scope);
+      thr->owned_contexts.emplace_back(cp->scope, child_context);
 
         /* Push the allocated context onto the write context stack. */
       vvp_set_stacked_context(child_context, thr->wt_context);
@@ -3007,6 +3027,9 @@ static bool do_disable(vthread_t thr, vthread_t match)
 	    vthread_reap(tmp);
       }
 
+      while (!thr->owned_contexts.empty())
+	    vthread_release_context(thr);
+
       vthread_t parent = thr->parent;
       if (parent && parent->i_am_joining) {
 	      // If a parent is waiting in a %join, wake it up. Note
@@ -3719,14 +3742,15 @@ bool of_FORCE_VEC4_OFF(vthread_t thr, vvp_code_t cp)
 {
       vvp_net_t*net = cp->net;
       unsigned base_idx = cp->bit_idx[0];
-      long base = thr->words[base_idx].w_int;
+      long base = base_idx ? thr->words[base_idx].w_int : 0;
       vvp_vector4_t value = thr->pop_vec4();
       unsigned wid = value.size();
 
       assert(net->fil);
 
-      if (thr->flags[4] == BIT4_1)
+      if (base_idx != 0 && thr->flags[4] == BIT4_1) {
 	    return true;
+      }
 
 	// This is the width of the target vector.
       unsigned use_size = net->fil->filter_size();
@@ -3768,7 +3792,7 @@ bool of_FORCE_VEC4_OFF_D(vthread_t thr, vvp_code_t cp)
       vvp_net_t*net = cp->net;
 
       unsigned base_idx = cp->bit_idx[0];
-      long base = thr->words[base_idx].w_int;
+      long base = base_idx ? thr->words[base_idx].w_int : 0;
 
       unsigned delay_idx = cp->bit_idx[1];
       vvp_time64_t delay = thr->words[delay_idx].w_uint;
@@ -3777,8 +3801,9 @@ bool of_FORCE_VEC4_OFF_D(vthread_t thr, vvp_code_t cp)
 
       assert(net->fil);
 
-      if (thr->flags[4] == BIT4_1)
+      if (base_idx != 0 && thr->flags[4] == BIT4_1) {
 	    return true;
+      }
 
 	// This is the width of the target vector.
       unsigned use_size = net->fil->filter_size();
@@ -3825,8 +3850,13 @@ bool of_FORK(vthread_t thr, vvp_code_t cp)
       if (thr->i_am_in_function) {
 	    child->is_scheduled = 1;
 	    child->i_am_in_function = 1;
+	      // A nested flow exit may reap this thread before the call returns.
+	    bool delay_delete = thr->delay_delete;
+	    thr->delay_delete = 1;
 	    vthread_run(child);
 	    running_thread = thr;
+	    if (thr->i_was_disabled) return false;
+	    thr->delay_delete = delay_delete;
       } else {
 	    schedule_vthread(child, 0, true);
       }
@@ -3835,12 +3865,10 @@ bool of_FORK(vthread_t thr, vvp_code_t cp)
 
 bool of_FREE(vthread_t thr, vvp_code_t cp)
 {
-        /* Pop the child context from the read context stack. */
-      vvp_context_t child_context = thr->rd_context;
-      thr->rd_context = vvp_get_stacked_context(child_context);
-
-        /* Free the context. */
-      vthread_free_context(child_context, cp->scope);
+      assert(!thr->owned_contexts.empty());
+      assert(thr->owned_contexts.back().first == cp->scope);
+      assert(thr->owned_contexts.back().second == thr->rd_context);
+      vthread_release_context(thr);
 
       return true;
 }
@@ -4079,6 +4107,25 @@ bool of_JMP(vthread_t thr, vvp_code_t cp)
       }
 
       return true;
+}
+
+bool of_JMP_FLOW(vthread_t thr, vvp_code_t cp)
+{
+      vthread_t child = thr;
+      while (child->parent && child->parent->parent_scope != cp->scope)
+	    child = child->parent;
+      vthread_t target = child->parent;
+      assert(target && target->parent_scope == cp->scope);
+
+      const bool joining = target->i_am_joining;
+      const bool release = target->wt_context != target->rd_context;
+      target->pc = cp->cptr2;
+      do_disable(child, thr);
+      if (!joining)
+	    do_join(target, child);
+      if (release)
+	    vthread_release_context(target);
+      return false;
 }
 
 /*
@@ -5581,6 +5628,74 @@ bool of_QINSERT_STR(vthread_t thr, vvp_code_t cp)
 bool of_QINSERT_V(vthread_t thr, vvp_code_t cp)
 {
       return qinsert<vvp_vector4_t, vvp_queue_vec4>(thr, cp, cp->bit_idx[1]);
+}
+
+/*
+ * %qslice
+ *
+ * Pop the high and low bounds (vec4, signed) and a queue object, and
+ * push a new queue holding the elements from low to high, inclusive.
+ * The bounds are clamped to the queue. If either bound is X/Z, or the
+ * low bound is above the high bound, the new queue is empty.
+ */
+static bool qslice_bound(const vvp_vector4_t&val, int64_t&res)
+{
+      unsigned wid = val.size();
+      if (wid <= 64) return vector4_to_value(val, res, true);
+
+	// Saturate a value that does not fit in 64 bits. The top bit is
+	// the sign.
+      bool neg = false;
+      bool fits = true;
+      for (unsigned idx = 0 ; idx < wid ; idx += 1) {
+	    vvp_bit4_t bit = val.value(idx);
+	    if (bit == BIT4_X || bit == BIT4_Z) return false;
+	    if (idx == wid-1) neg = (bit == BIT4_1);
+      }
+      for (unsigned idx = 63 ; idx < wid ; idx += 1)
+	    if ((val.value(idx) == BIT4_1) != neg) fits = false;
+      if (!fits) {
+	    res = neg ? INT64_MIN : INT64_MAX;
+	    return true;
+      }
+      return vector4_to_value(vvp_vector4_t(val, 0, 64), res, true);
+}
+
+bool of_QSLICE(vthread_t thr, vvp_code_t)
+{
+      int64_t hi = 0, lo = 0;
+      bool defined = qslice_bound(thr->peek_vec4(0), hi);
+      defined &= qslice_bound(thr->peek_vec4(1), lo);
+      thr->pop_vec4(2);
+
+      vvp_object_t src;
+      thr->pop_object(src);
+
+      vvp_queue*queue = src.peek<vvp_queue>();
+      if (!queue) {
+	      // A queue that was never written has no object to slice.
+	    thr->push_object(src);
+	    return true;
+      }
+
+      vvp_object_t dup = src.duplicate();
+      vvp_queue*res = dup.peek<vvp_queue>();
+      int64_t size = res->get_size();
+      if (!defined) {
+	    res->erase_tail(0);
+      } else {
+	    if (lo < 0) lo = 0;
+	    if (hi >= size) hi = size - 1;
+	    if (lo > hi) {
+		  res->erase_tail(0);
+	    } else {
+		  res->erase_tail(hi + 1);
+		  for (int64_t idx = 0 ; idx < lo ; idx += 1)
+			res->pop_front();
+	    }
+      }
+      thr->push_object(dup);
+      return true;
 }
 
 /*
@@ -7638,16 +7753,12 @@ bool of_STORE_QB_V(vthread_t thr, vvp_code_t cp)
       return store_qb<vvp_vector4_t, vvp_queue_vec4>(thr, cp, cp->bit_idx[1]);
 }
 
-template <typename ELEM, class QTYPE>
-static bool store_qdar(vthread_t thr, vvp_code_t cp, unsigned wid=0)
+template <typename ELEM>
+static void store_qdar_word(vthread_t thr, vvp_queue*queue, unsigned max_size,
+			    ELEM&value)
 {
       int64_t idx = thr->words[3].w_int;
-      ELEM value;
-      vvp_net_t*net = cp->net;
-      pop_value(thr, value, wid); // Pop the value to store.
 
-      vvp_queue*queue = get_queue_object<QTYPE>(thr, net);
-      assert(queue);
       if (idx < 0) {
 	    cerr << thr->get_fileline()
 	         << "Warning: cannot assign to a negative "
@@ -7662,9 +7773,20 @@ static bool store_qdar(vthread_t thr, vvp_code_t cp, unsigned wid=0)
 	    print_queue_value(value);
 	    cerr << " was not added." << endl;
       } else {
-	    unsigned max_size = thr->words[cp->bit_idx[0]].w_int;
 	    queue->set_word_max(idx, value, max_size);
       }
+}
+
+template <typename ELEM, class QTYPE>
+static bool store_qdar(vthread_t thr, vvp_code_t cp, unsigned wid=0)
+{
+      ELEM value;
+      vvp_net_t*net = cp->net;
+      pop_value(thr, value, wid); // Pop the value to store.
+
+      vvp_queue*queue = get_queue_object<QTYPE>(thr, net);
+      assert(queue);
+      store_qdar_word(thr, queue, thr->words[cp->bit_idx[0]].w_int, value);
       return true;
 }
 
@@ -7690,6 +7812,44 @@ bool of_STORE_QDAR_STR(vthread_t thr, vvp_code_t cp)
 bool of_STORE_QDAR_V(vthread_t thr, vvp_code_t cp)
 {
       return store_qdar<vvp_vector4_t, vvp_queue_vec4>(thr, cp, cp->bit_idx[1]);
+}
+
+template <typename ELEM, class QTYPE>
+static bool store_prop_qdar(vthread_t thr, vvp_code_t cp, unsigned wid=0)
+{
+      size_t pid = cp->number;
+      ELEM value;
+      pop_value(thr, value, wid); // Pop the value to store.
+
+      vvp_object_t& top = thr->peek_object();
+      vvp_cobject*cobj = top.peek<vvp_cobject>();
+      assert(cobj);
+
+      QTYPE*queue = get_queue_prop<QTYPE>(cobj, pid);
+      store_qdar_word(thr, queue, thr->words[cp->bit_idx[0]].w_int, value);
+      return true;
+}
+
+/*
+ * %store/prop/qdar/r <pid>, idx
+ * %store/prop/qdar/str <pid>, idx
+ * %store/prop/qdar/v <pid>, idx, wid
+ *   Indexed write of a queue class property; object on the object stack,
+ *   element index in words[3]. An index at the end of the queue appends.
+ */
+bool of_STORE_PROP_QDAR_R(vthread_t thr, vvp_code_t cp)
+{
+      return store_prop_qdar<double, vvp_queue_real>(thr, cp);
+}
+
+bool of_STORE_PROP_QDAR_STR(vthread_t thr, vvp_code_t cp)
+{
+      return store_prop_qdar<string, vvp_queue_string>(thr, cp);
+}
+
+bool of_STORE_PROP_QDAR_V(vthread_t thr, vvp_code_t cp)
+{
+      return store_prop_qdar<vvp_vector4_t, vvp_queue_vec4>(thr, cp, cp->bit_idx[1]);
 }
 
 template <typename ELEM, class QTYPE>

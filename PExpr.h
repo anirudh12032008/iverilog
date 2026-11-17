@@ -459,6 +459,10 @@ class PEIdent : public PExpr {
 
       const pform_scoped_name_t& path() const { return path_; }
 
+	// True if the name is the declaration of a class, and not a
+	// typedef of one.
+      bool names_class_declaration(Design *des, NetScope *scope) const;
+
     private:
       // Type testing and elaboration normally happen as a pair. Preserve the
       // lookup result between them, but only reuse it in the same scope.
@@ -736,10 +740,16 @@ class PENull : public PExpr {
                                      unsigned flags) const override;
 };
 
-// Internal marker for the '$' in a queue dimension.
+// The '$' in a queue dimension or in a queue index (the last element).
 class PEQueueDimension : public PExpr {
     public:
       void dump(std::ostream&) const override;
+      unsigned test_width(Design*des, NetScope*scope,
+			  width_mode_t&mode) override;
+      NetExpr*elaborate_expr(Design*des, NetScope*scope,
+			     ivl_type_t type, unsigned flags) const override;
+      NetExpr*elaborate_expr(Design*des, NetScope*scope,
+			     unsigned expr_wid, unsigned flags) const override;
 };
 
 class PENumber : public PExpr {

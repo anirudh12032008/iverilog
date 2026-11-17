@@ -341,6 +341,17 @@ NetAssign_*PEIdent::elaborate_lval_var_(Design *des, NetScope *scope,
 
       ivl_assert(*this, member_path.empty());
 
+      if (use_sel == index_component_t::SEL_PART && reg->darray_type()) {
+	    cerr << get_fileline() << ": sorry: "
+		 << "assigning to a "
+		 << (name_tail.index.size() > 1 ? "part select of an element of "
+					       : "slice of ")
+		 << reg->name() << " is not supported." << endl;
+	    des->errors += 1;
+	    delete lv;
+	    return nullptr;
+      }
+
       if (use_sel == index_component_t::SEL_PART) {
 	    elaborate_lval_net_part_(des, scope, lv, is_force);
 	    return lv;
@@ -757,6 +768,7 @@ bool PEIdent::elaborate_lval_darray_bit_(Design*des,
 	    mux->set_line(*this);
       } else {
 	    ivl_assert(*this, index_tail.msb != 0);
+	    dollar_queue_scope queue_scope(lv->sig());
 	    mux = elab_and_eval(des, scope, index_tail.msb, -1);
       }
 
@@ -1236,6 +1248,12 @@ NetAssign_* PEIdent::elaborate_lval_net_class_member_(Design*des, NetScope*scope
 			      }
 			} else {
 			      ivl_assert(*this, use_index.msb != 0);
+				// "$" in the index is the last element of
+				// this queue (not for a nested property,
+				// which has no net of its own).
+			      dollar_queue_scope queue_scope(is_nested ? nullptr : lv->sig(),
+							     pidx, !is_nested &&
+							     dynamic_cast<const netqueue_t*>(ptype));
 			      canon_index = elab_and_eval(des, scope, use_index.msb, -1);
 			}
 		  }
@@ -1357,6 +1375,7 @@ bool PEIdent::elaborate_lval_net_packed_member_(Design*des, NetScope*scope,
       unsigned long off = 0;
       unsigned long use_width = struct_type->packed_width();
       ivl_type_t member_type;
+      bool is_part_select = false;
 
       pform_name_t completed_path;
       do {
@@ -1507,7 +1526,7 @@ bool PEIdent::elaborate_lval_net_packed_member_(Design*des, NetScope*scope,
 
 			off += loff;
 			use_width = lwid * tail_wid;
-			member_type = nullptr;
+			is_part_select = true;
 		  }
 
 		    // The netvector_t only has atom elements, to
@@ -1683,10 +1702,11 @@ bool PEIdent::elaborate_lval_net_packed_member_(Design*des, NetScope*scope,
 
       if (packed_base == 0) {
 	    NetExpr *base = new NetEConst(verinum(off));
-	    if (member_type)
+	    if (is_part_select) {
+		  lv->set_part(base, member_type, use_width);
+	    } else {
 		  lv->set_part(base, member_type);
-	    else
-		  lv->set_part(base, use_width);
+	    }
 	    return true;
       }
 
