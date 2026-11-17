@@ -33,8 +33,8 @@ module test;
 
   C c, c2;
   int v[], v2[];
-  real rv[], rv2[];
-  string sv[], sv2[];
+  real rv[];
+  string sv[];
 
   initial begin
     c = new;
@@ -73,20 +73,29 @@ module test;
     clobber_task(c.d);
     check(c.d[0] == 1, "property as task argument");
 
+    v = '{1, 2, 3};
+    c.d = v;
+    c.d[0] = 9;
+    check(v[0] == 1, "element write to property, variable unchanged");
+    v[1] = 8;
+    check(c.d[1] == 2, "element write to variable, property unchanged");
+
     c.d = new[4];
     check(c.d.size() == 4, "property = new[]");
 
     rv = '{1.5, 2.5};
     c.rd = rv;
     rv[0] = 9.5;
-    rv2 = c.rd;
-    check(rv2[0] == 1.5, "real array");
+    check(c.rd[0] == 1.5, "real array, change variable");
+    c.rd[1] = 8.5;
+    check(rv[1] == 2.5, "real array, change property");
 
     sv = '{"a", "b"};
     c.sd = sv;
     sv[0] = "z";
-    sv2 = c.sd;
-    check(sv2[0] == "a", "string array");
+    check(c.sd[0] == "a", "string array, change variable");
+    c.sd[1] = "y";
+    check(sv[1] == "b", "string array, change property");
 
     if (failed)
       $display("FAILED");

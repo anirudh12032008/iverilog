@@ -116,21 +116,38 @@ module test;
     c.q.push_back(4);
     check(c.q.size() == 4, "property = assignment pattern");
 
+    r = '{1, 2, 3};
+    c.q = r;
+    c.q[0] = 9;
+    check(r[0] == 1, "element write to property, variable unchanged");
+    r[1] = 8;
+    check(c.q[1] == 2, "element write to variable, property unchanged");
+    c.q[$+1] = 4;
+    check(r.size() == 3, "append to property, variable unchanged");
+
     rr = '{1.5, 2.5};
     c.rq = rr;
     rr.push_back(3.5);
+    check(c.rq.size() == 2, "real queue, change variable");
+    c.rq[0] = 9.5;
+    check(rr[0] == 1.5, "real queue, element write to property");
+    rr[1] = 8.5;
+    check(c.rq[1] == 2.5, "real queue, element write to variable");
     rr2 = c.rq;
     rr2.push_back(4.5);
-    rr2 = c.rq;
-    check(rr2.size() == 2, "real queue");
+    check(c.rq.size() == 2, "real queue, change copy");
 
     ss = '{"a", "b"};
     c.sq = ss;
     ss.push_back("c");
+    check(c.sq.size() == 2, "string queue, change variable");
+    c.sq[0] = "z";
+    check(ss[0] == "a", "string queue, element write to property");
+    ss[1] = "y";
+    check(c.sq[1] == "b", "string queue, element write to variable");
     ss2 = c.sq;
     ss2.push_back("d");
-    ss2 = c.sq;
-    check(ss2.size() == 2, "string queue");
+    check(c.sq.size() == 2, "string queue, change copy");
 
     if (failed)
       $display("FAILED");

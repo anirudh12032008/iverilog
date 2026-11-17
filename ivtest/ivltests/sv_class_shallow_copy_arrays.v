@@ -12,6 +12,7 @@ module test;
     int q[$];
     int d[];
     real rq[$];
+    real rd[];
     string sq[$];
     string sd[];
     Inner h;
@@ -25,41 +26,77 @@ module test;
     end
   endtask
 
-  C c, c2;
+  C c, c2, n1, n2;
   Inner h;
-  real rr2[$];
-  string s[], ss2[$];
+  int r[$];
+  real rr[$];
+  string ss[$];
 
   initial begin
     c = new;
     c.q = '{1, 2};
     c.d = '{1, 2, 3};
-    s = new[2];
-    c.sd = s;
+    rr = '{1.5, 2.5};
+    c.rq = rr;
+    c.rd = '{1.5, 2.5};
+    ss = '{"a", "b"};
+    c.sq = ss;
+    c.sd = '{"a", "b"};
     c.h = new;
 
     c2 = new c;
-    c2.q.push_back(3);
-    check(c.q.size() == 2, "queue, change copy");
-    c.q.push_back(3);
-    check(c2.q.size() == 3, "queue, change original");
+    c2.q[0] = 9;
+    c2.q[$+1] = 4;
+    check(c.q.size() == 2 && c.q[0] == 1, "queue, change copy");
+    c.q[1] = 8;
+    check(c2.q[1] == 2, "queue, change original");
 
-    c2.d.reverse();
+    c2.d[0] = 9;
     check(c.d[0] == 1, "darray, change copy");
-    c.d.reverse();
-    check(c2.d[0] == 3, "darray, change original");
+    c.d[1] = 8;
+    check(c2.d[1] == 2, "darray, change original");
 
-    c2.sd.delete();
-    check(c.sd.size() == 2, "string darray");
+    c2.rq[0] = 9.5;
+    c2.rq[$+1] = 4.5;
+    check(c.rq.size() == 2 && c.rq[0] == 1.5, "real queue, change copy");
+    c.rq[1] = 8.5;
+    check(c2.rq[1] == 2.5, "real queue, change original");
 
-    c.rq.push_back(1.5);
-    c2 = new c;
-    c2.rq.push_back(2.5);
-    rr2 = c.rq;
-    check(rr2.size() == 1, "real queue");
-    c2.sq.push_back("x");
-    ss2 = c.sq;
-    check(ss2.size() == 0, "string queue");
+    c2.rd[0] = 9.5;
+    check(c.rd[0] == 1.5, "real darray, change copy");
+    c.rd[1] = 8.5;
+    check(c2.rd[1] == 2.5, "real darray, change original");
+
+    c2.sq[0] = "z";
+    c2.sq[$+1] = "d";
+    check(c.sq.size() == 2 && c.sq[0] == "a", "string queue, change copy");
+    c.sq[1] = "y";
+    check(c2.sq[1] == "b", "string queue, change original");
+
+    c2.sd[0] = "z";
+    check(c.sd[0] == "a", "string darray, change copy");
+    c.sd[1] = "y";
+    check(c2.sd[1] == "b", "string darray, change original");
+
+    c2.d = new[5];
+    check(c.d.size() == 3, "darray, new[] on copy");
+
+    // Properties that were never written.
+    n1 = new;
+    n2 = new n1;
+    n2.q[$+1] = 1;
+    n2.rq[$+1] = 1.5;
+    n2.sq[$+1] = "x";
+    n2.d = new[2];
+    n2.rd = new[2];
+    n2.sd = new[2];
+    check(n1.q.size() == 0, "unwritten queue");
+    check(n1.rq.size() == 0, "unwritten real queue");
+    check(n1.sq.size() == 0, "unwritten string queue");
+    check(n1.d.size() == 0, "unwritten darray");
+    check(n1.rd.size() == 0, "unwritten real darray");
+    check(n1.sd.size() == 0, "unwritten string darray");
+    check(n2.q.size() == 1 && n2.d.size() == 2, "unwritten, copy keeps its own");
 
     c.h.n = 5;
     c2 = new c;
